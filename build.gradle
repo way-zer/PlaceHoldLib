@@ -6,7 +6,7 @@ plugins {
 
 apply plugin: "maven-publish"
 group 'cf.wayzer'
-version '1.0'
+version '2.0'
 
 repositories {
     jcenter()
@@ -32,7 +32,7 @@ dokka{
 
 task javadocJar(type: Jar,dependsOn: dokka){
     from dokka.outputDirectory
-    archiveClassifier ="javadoc"
+    archiveClassifier.set("javadoc")
 }
 
 publishing {
