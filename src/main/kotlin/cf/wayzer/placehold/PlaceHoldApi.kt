@@ -1,5 +1,8 @@
 package cf.wayzer.placehold
 
+import cf.wayzer.placehold.types.DateResolver
+import java.util.*
+
 @Suppress("MemberVisibilityCanBePrivate", "unused")
 object PlaceHoldApi {
     /**
@@ -34,4 +37,9 @@ object PlaceHoldApi {
     }
 
     inline fun <reified T : Any> typeBinder() = typeBinder(T::class.java)
+
+    init {
+        registerGlobalVar(TemplateHandlerKey, TemplateHandler { it })//Keep it origin
+        typeBinder<Date>().registerToString(DateResolver())
+    }
 }

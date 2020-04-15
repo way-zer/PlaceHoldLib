@@ -28,8 +28,8 @@ data class PlaceHoldContext(
 
         fun round(v: Any?, h: () -> Any?): Any? {
             return v ?: (h()?.let {
-                if(forString)
-                    typeResolve(it,params=params)?:it
+                if (forString)
+                    typeResolve(it, params = params) ?: it
                 else it
             })
         }
@@ -40,7 +40,7 @@ data class PlaceHoldContext(
             newVars[name]?.let { resolveVar(name, it, null) }
         }
 
-        val sp = name.split(":")
+        val sp = name.split(":", limit = 2)
         params = sp.getOrNull(1)
         obj = round(obj) {
             //Full match with params {fullMatch:params}
@@ -55,7 +55,7 @@ data class PlaceHoldContext(
             var v: Any? = resolveVar(paths[0], newVars[paths[0]], params)
             var i = 1
             while (v != null && i < paths.size) {
-                v = resolveVar(paths[i], typeResolve(v,paths[i],params), params)
+                v = resolveVar(paths[i], typeResolve(v, paths[i], params), params)
                 i++
             }
             return@round if (i == paths.size) v else null
@@ -85,15 +85,16 @@ data class PlaceHoldContext(
         }
     }
 
-    fun <T : Any> typeResolve(obj: T, child: String = "toString", params: String?=null): Any? {
+    fun <T : Any> typeResolve(obj: T, child: String = "toString", params: String? = null): Any? {
         return bindTypes[obj::class.java]?.let {
             @Suppress("UNCHECKED_CAST")
-            (it as TypeBinder<T>).resolve(this, obj, child,params)
+            (it as TypeBinder<T>).resolve(this, obj, child, params)
         }
     }
 
     override fun toString(): String {
-        return varFormat.replace(text) {
+        val template = getVar(TemplateHandlerKey).let { it as TemplateHandler }.run { handle(text) }
+        return varFormat.replace(template) {
             getVar(it.groupValues[1], true)?.toString() ?: it.value
         }
     }

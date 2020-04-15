@@ -10,39 +10,62 @@ package cf.wayzer.placehold
  */
 val NOTFOUND = null
 
-/*fun*/ interface DynamicVar<T:Any,G:Any> {
+/**
+ * @see TemplateHandler
+ */
+const val TemplateHandlerKey = "_TemplateHandler"
+
+/**
+ * A Handler for template before parse
+ * register use [TemplateHandlerKey]
+ */
+/*fun*/ interface TemplateHandler {
+    fun PlaceHoldContext.handle(text: String): String
+
+    companion object {
+        operator fun invoke(body: PlaceHoldContext.(String) -> String) = object : TemplateHandler {
+            override fun PlaceHoldContext.handle(text: String): String = body(text)
+        }
+    }
+}
+
+/*fun*/ interface DynamicVar<T : Any, G : Any> {
     /**
      * @param obj bindType obj(T) or varName(String)
      * @param params may null when no params provided
      */
-    fun PlaceHoldContext.handle(obj:T , params: String?): G?
-    companion object{
+    fun PlaceHoldContext.handle(obj: T, params: String?): G?
+
+    companion object {
         operator fun <T : Any> invoke(v: PlaceHoldContext.() -> T?) = object : DynamicVar<Any, T> {
             override fun PlaceHoldContext.handle(obj: Any, params: String?): T? = v()
         }
-        operator fun <T : Any,G:Any> invoke(v: PlaceHoldContext.(obj: T, params: String?) -> G?) = object : DynamicVar<T, G> {
+
+        operator fun <T : Any, G : Any> invoke(v: PlaceHoldContext.(obj: T, params: String?) -> G?) = object : DynamicVar<T, G> {
             override fun PlaceHoldContext.handle(obj: T, params: String?): G? = v(obj, params)
         }
     }
 }
 
 @Suppress("unused")
-open class TypeBinder<T:Any>{
-    private val handlers = mutableMapOf<String,DynamicVar<T,out Any>>()
+open class TypeBinder<T : Any> {
+    private val handlers = mutableMapOf<String, DynamicVar<T, out Any>>()
 
     /**
      * Bind handler for object to string
      */
-    fun registerToString(body: DynamicVar<T,String>){
-        handlers["toString"]=body
+    fun registerToString(body: DynamicVar<T, String>) {
+        handlers["toString"] = body
     }
+
     /**
      * register child vars,can be nested
      */
-    fun registerChild(key: String,body: DynamicVar<T,Any>){
-        handlers[key]=body
+    fun registerChild(key: String, body: DynamicVar<T, Any>) {
+        handlers[key] = body
     }
-    open fun resolve(context: PlaceHoldContext,obj:T,child:String,params: String?):Any?{
-        return handlers[child]?.run { context.handle(obj,params) }
+
+    open fun resolve(context: PlaceHoldContext, obj: T, child: String, params: String?): Any? {
+        return handlers[child]?.run { context.handle(obj, params) }
     }
 }
