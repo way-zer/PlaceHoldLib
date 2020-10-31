@@ -1,7 +1,6 @@
 import cf.wayzer.placehold.DynamicVar
 import cf.wayzer.placehold.PlaceHoldApi
 import cf.wayzer.placehold.PlaceHoldApi.with
-import cf.wayzer.placehold.types.DateResolver
 import org.junit.Assert
 import org.junit.Test
 import java.util.*
@@ -37,12 +36,12 @@ class Test {
 
     @Test
     fun badPath() {
-        Assert.assertEquals("{o.a} {o.b}", "{o.a} {o.b}".with("o" to Data(22, "ab")).toString())
+        Assert.assertEquals("{o.d} {o.f}", "{o.d} {o.f}".with("o" to Data(22, "ab")).toString())
     }
 
     @Test
     fun testParams() {
-        val v = DynamicVar{_:Any,param-> param?:"NO Params"}
+        val v = DynamicVar { _, _: Any, params -> params ?: "NO Params" }
         Assert.assertEquals("NO Params", "{v}".with("v" to v).toString())
         Assert.assertEquals("", "{v:}".with("v" to v).toString())
         Assert.assertEquals("123 456", "{v:123 456}".with("v" to v).toString())
@@ -51,9 +50,9 @@ class Test {
     @Test
     fun testTypeBind() {
         PlaceHoldApi.typeBinder<Data>().apply {
-            registerChild("a", DynamicVar { obj, _ -> obj.a })
-            registerChild("b", DynamicVar { obj, _ -> obj.b })
-            registerToString(DynamicVar{obj, _ -> obj.toString()})
+            registerChild("a", DynamicVar.obj { it.a })
+            registerChild("b", DynamicVar.obj { it.b })
+            registerToString { _, obj, _ -> obj.toString() }
         }
         Assert.assertEquals("22 ab", "{o.a} {o.b}".with("o" to Data(22, "ab")).toString())
         Assert.assertEquals("{o.} Data(a=22, b=ab)", "{o.} {o}".with("o" to Data(22, "ab")).toString())
@@ -61,14 +60,25 @@ class Test {
 
     @Test
     fun testDateTypeBinder() {
-        PlaceHoldApi.typeBinder<Date>().registerToString(DateResolver())
         Assert.assertEquals("01-01", "{t}".with("t" to Date(0)).toString())
         Assert.assertEquals("1970-01-01", "{t:yyyy-MM-dd}".with("t" to Date(0)).toString())
     }
 
     @Test
     fun testGlobalContext() {
-        PlaceHoldApi.typeBinder<Date>().registerToString(DateResolver())
         Assert.assertEquals("01-01", PlaceHoldApi.GlobalContext.typeResolve(Date(0)).toString())
+    }
+
+    @Test
+    fun testCache() {
+        PlaceHoldApi.typeBinder<Data>().apply {
+            registerChild("a", DynamicVar.obj { it.a })
+            registerChild("b", DynamicVar.obj { it.b })
+            registerToString { _, obj, _ -> obj.toString() }
+        }
+        var count = 0
+        val a = DynamicVar.v { count++;Data(22, "ab") }
+        "{o.a} {o.b} {o} {o.a}".with("o" to a).toString()
+        Assert.assertEquals(1, count)
     }
 }

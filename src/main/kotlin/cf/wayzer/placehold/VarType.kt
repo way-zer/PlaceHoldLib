@@ -8,7 +8,7 @@ package cf.wayzer.placehold
  * [PlaceHoldContext]: will add vars as fallback for nested sentence, upper vars are prefer
  * Other: Can be used by other var, or will call [toString] for Value
  */
-val NOTFOUND = null
+object NOTFOUND : Throwable()
 
 /**
  * @see TemplateHandler
@@ -19,31 +19,20 @@ const val TemplateHandlerKey = "_TemplateHandler"
  * A Handler for template before parse
  * register use [TemplateHandlerKey]
  */
-/*fun*/ interface TemplateHandler {
-    fun PlaceHoldContext.handle(text: String): String
-
-    companion object {
-        operator fun invoke(body: PlaceHoldContext.(String) -> String) = object : TemplateHandler {
-            override fun PlaceHoldContext.handle(text: String): String = body(text)
-        }
-    }
+fun interface TemplateHandler {
+    fun handle(ctx: PlaceHoldContext, text: String): String
 }
 
-/*fun*/ interface DynamicVar<T : Any, G : Any> {
+fun interface DynamicVar<T : Any, G : Any> {
     /**
      * @param obj bindType obj(T) or varName(String)
      * @param params may null when no params provided
      */
-    fun PlaceHoldContext.handle(obj: T, params: String?): G?
+    fun handle(ctx: PlaceHoldContext, obj: T, params: String?): G?
 
     companion object {
-        operator fun <T : Any> invoke(v: PlaceHoldContext.() -> T?) = object : DynamicVar<Any, T> {
-            override fun PlaceHoldContext.handle(obj: Any, params: String?): T? = v()
-        }
-
-        operator fun <T : Any, G : Any> invoke(v: PlaceHoldContext.(obj: T, params: String?) -> G?) = object : DynamicVar<T, G> {
-            override fun PlaceHoldContext.handle(obj: T, params: String?): G? = v(obj, params)
-        }
+        fun <T : Any, G : Any> obj(body: (obj: T) -> G?) = DynamicVar { _, obj: T, _ -> body(obj) }
+        fun <G : Any> v(body: () -> G?) = DynamicVar { _, _: Any, _ -> body() }
     }
 }
 
@@ -66,6 +55,6 @@ open class TypeBinder<T : Any> {
     }
 
     open fun resolve(context: PlaceHoldContext, obj: T, child: String, params: String?): Any? {
-        return handlers[child]?.run { context.handle(obj, params) }
+        return handlers[child]?.handle(context, obj, params)
     }
 }
