@@ -69,9 +69,12 @@ data class PlaceHoldContext(
     }
 
     fun <T : Any> typeResolve(obj: T, child: String = "toString", params: String? = null): Any? {
-        val cls = obj::class.java
-        return bindTypes[cls]?.resolve(this, obj, child, params)
-            ?: cls.superclass?.let { typeResolve(it, child, params) }
+        var cls: Class<out Any>? = obj::class.java
+        while (cls != null) {
+            bindTypes[cls]?.resolve(this, obj, child, params)?.let { return it }
+            cls = cls.superclass
+        }
+        return null
     }
 
     override fun toString(): String {
