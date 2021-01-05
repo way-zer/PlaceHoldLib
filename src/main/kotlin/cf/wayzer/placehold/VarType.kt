@@ -21,6 +21,10 @@ const val TemplateHandlerKey = "_TemplateHandler"
  */
 fun interface TemplateHandler {
     fun handle(ctx: PlaceHoldContext, text: String): String
+
+    companion object {
+        fun new(body: PlaceHoldContext.(text: String) -> String) = TemplateHandler { ctx, it -> ctx.body(it) }
+    }
 }
 
 fun interface DynamicVar<T : Any, G : Any> {
@@ -31,8 +35,10 @@ fun interface DynamicVar<T : Any, G : Any> {
     fun handle(ctx: PlaceHoldContext, obj: T, params: String?): G?
 
     companion object {
-        fun <T : Any, G : Any> obj(body: (obj: T) -> G?) = DynamicVar { _, obj: T, _ -> body(obj) }
-        fun <G : Any> v(body: () -> G?) = DynamicVar { _, _: Any, _ -> body() }
+        fun <T : Any, G : Any> obj(body: PlaceHoldContext.(obj: T) -> G?) =
+            DynamicVar { ctx, obj: T, _ -> ctx.body(obj) }
+
+        fun <G : Any> v(body: PlaceHoldContext.() -> G?) = DynamicVar { ctx, _: Any, _ -> ctx.body() }
     }
 }
 
