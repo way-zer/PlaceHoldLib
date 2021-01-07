@@ -1,16 +1,27 @@
 plugins {
     id 'org.jetbrains.kotlin.jvm' version '1.4.0'
+    id "me.qoomon.git-versioning" version "2.1.1"
     id 'org.jetbrains.dokka' version '0.10.1'
     id "com.jfrog.bintray" version "1.8.4"
 }
 
 apply plugin: "maven-publish"
 group 'cf.wayzer'
-version '3.0'
+version '3.1'
+
+gitVersioning.apply {
+    tag {
+        pattern = "v(?<tagVersion>[0-9].*)"
+        versionFormat = "\${tagVersion}"
+    }
+    commit {
+        versionFormat = "\${commit.short}-SNAPSHOT"
+    }
+}
 
 repositories {
     jcenter()
-    maven {url "https://maven.aliyun.com/repository/jcenter"}
+    maven { url "https://maven.aliyun.com/repository/jcenter" }
 }
 
 dependencies {
@@ -25,12 +36,12 @@ compileTestKotlin {
     kotlinOptions.jvmTarget = "1.8"
 }
 
-dokka{
+dokka {
     outputFormat = 'html'
     outputDirectory = "$buildDir/javadoc"
 }
 
-task javadocJar(type: Jar,dependsOn: dokka){
+task javadocJar(type: Jar, dependsOn: dokka) {
     from dokka.outputDirectory
     archiveClassifier.set("javadoc")
 }
@@ -55,9 +66,9 @@ bintray {
     dryRun = false
     override = true
     publish = true
-    pkg{
+    pkg {
         repo = "maven"
-        name = rootProject.group+":"+rootProject.name
+        name = rootProject.group + ":" + rootProject.name
         desc = 'A library for i18n in dynamic with strong variable supporting'
         githubRepo = 'way-zer/I18nLibrary'
         githubReleaseNotesFile = 'README.md'
