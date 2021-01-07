@@ -1,6 +1,5 @@
 package cf.wayzer.placehold
 
-import cf.wayzer.placehold.util.StringList
 import cf.wayzer.placehold.util.VarTree
 
 @Suppress("MemberVisibilityCanBePrivate", "unused")
@@ -59,10 +58,6 @@ data class PlaceHoldContext(
                     resolveVar(keys, vv, params)
                 } else res = NOTFOUND
             }
-            is List<*> -> {
-                if (v !is StringList<*>)
-                    res = StringList(v.mapIndexedNotNull { it, i -> resolveVar(keys + i.toString(), it, params) })
-            }
         }
         if (res != v) vars[keys] = res
         return res
@@ -72,6 +67,9 @@ data class PlaceHoldContext(
         var cls: Class<out Any>? = obj::class.java
         while (cls != null) {
             bindTypes[cls]?.resolve(this, obj, child, params)?.let { return it }
+            cls.interfaces.forEach { int ->
+                bindTypes[int]?.resolve(this, obj, child, params)?.let { return it }
+            }
             cls = cls.superclass
         }
         return null

@@ -1,6 +1,7 @@
 package cf.wayzer.placehold
 
 import cf.wayzer.placehold.types.DateResolver
+import cf.wayzer.placehold.types.ListTypeBinder
 import cf.wayzer.placehold.util.VarTree
 import java.util.*
 
@@ -41,5 +42,7 @@ object PlaceHoldApi {
     init {
         registerGlobalVar(TemplateHandlerKey, TemplateHandler { _, it -> it })//Keep it origin
         typeBinder<Date>().registerToString(DateResolver())
+        @Suppress("UNCHECKED_CAST")
+        PlaceHoldContext.bindTypes[List::class.java] = ListTypeBinder() as TypeBinder<Any>
     }
 }

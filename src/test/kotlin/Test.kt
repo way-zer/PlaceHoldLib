@@ -20,19 +20,28 @@ class Test {
     fun nested() {
         val nest1 = "Here will refer nest2: {nest2}".with()
         val nest2 = "Here {nest2} is string".with("nest2" to "nest2")
-        Assert.assertEquals("nest Test 'Here will refer nest2: Here nest2 is string' 'Here nest2 is string'",
-                "nest Test '{nest1}' '{nest2}'".with("nest1" to nest1, "nest2" to nest2).toString())
+        Assert.assertEquals(
+            "nest Test 'Here will refer nest2: Here nest2 is string' 'Here nest2 is string'",
+            "nest Test '{nest1}' '{nest2}'".with("nest1" to nest1, "nest2" to nest2).toString()
+        )
     }
 
     @Test
     fun nestedVar() {
         PlaceHoldApi.registerGlobalVar("nest3", "nested {v}".with())
-        PlaceHoldApi.registerGlobalDynamicVar("nestVar"){_,_-> getVar("nest3")}
+        PlaceHoldApi.registerGlobalDynamicVar("nestVar") { _, _ -> getVar("nest3") }
         Assert.assertEquals("nested Var", "{nestVar}".with("v" to "Var").toString())
     }
 
-    data class Data(val a: Int, val b: String)
+    @Test
+    fun testList() {
+        PlaceHoldApi//ensure init
+        val list = listOf(1, 2, 3, 4, 5)
+        Assert.assertEquals("1,2,3,4,5", "{list}".with("list" to list).toString())
+    }
 
+
+    data class Data(val a: Int, val b: String)
 
     @Test
     fun badPath() {
