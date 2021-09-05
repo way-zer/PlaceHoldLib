@@ -4,8 +4,8 @@ import cf.wayzer.placehold.util.VarTree
 
 @Suppress("MemberVisibilityCanBePrivate", "unused")
 data class PlaceHoldContext(
-        val text: String,
-        var vars: VarTree
+    val text: String,
+    var vars: VarTree
 ) {
     /**
      * will add [vars] to child as fallback
@@ -25,9 +25,10 @@ data class PlaceHoldContext(
         val params = nameS.getOrNull(1)
 
         try {
+            val mergedVars = VarTree.Overlay(vars, globalVars)
             for (i in keys.size downTo 1) {
                 val subKeys = keys.subList(0, i)
-                var v = vars[subKeys] ?: globalVars[subKeys] ?: continue
+                var v = mergedVars[subKeys] ?: continue
                 v = resolveVar(subKeys, v, params)
                 for (ii in (i + 1)..keys.size) {
                     v = typeResolve(v, keys[ii - 1], params) ?: NOTFOUND

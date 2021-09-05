@@ -11,10 +11,10 @@ object PlaceHoldApi {
      * use to resolve global vars
      */
     val GlobalContext = PlaceHoldContext.globalContext
-    fun getContext(text: String, vars: Map<String, Any>) = PlaceHoldContext(text, VarTree.Normal(vars))
-    fun replaceAll(text: String, vars: Map<String, Any>) = getContext(text, vars).toString()
-    fun String.with(vars: Map<String, Any>) = getContext(this, vars)
-    fun String.with(vararg vars: Pair<String, Any>) = getContext(this, vars.toMap())
+    fun getContext(text: String, vars: Map<String, Any?>) = PlaceHoldContext(text, VarTree.of(vars))
+    fun replaceAll(text: String, vars: Map<String, Any?>) = getContext(text, vars).toString()
+    fun String.with(vars: Map<String, Any?>) = getContext(this, vars)
+    fun String.with(vararg vars: Pair<String, Any?>) = getContext(this, vars.toMap())
 
     /**
      * see VarType.kt for all support types
@@ -27,7 +27,10 @@ object PlaceHoldApi {
     /**
      * Helper function for DynamicVar
      */
-    fun <T : Any> registerGlobalDynamicVar(name: String, v: PlaceHoldContext.(name: List<String>, params: String?) -> T?) = registerGlobalVar(name, DynamicVar(v))
+    fun <T : Any> registerGlobalDynamicVar(
+        name: String,
+        v: PlaceHoldContext.(name: List<String>, params: String?) -> T?
+    ) = registerGlobalVar(name, DynamicVar(v))
 
     /**
      * get binder for type

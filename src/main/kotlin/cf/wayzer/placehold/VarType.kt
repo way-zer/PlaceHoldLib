@@ -49,15 +49,16 @@ open class TypeBinder<T : Any> {
     /**
      * Bind handler for object to string
      */
-    fun registerToString(body: DynamicVar<T, String>) {
-        handlers["toString"] = body
+    fun registerToString(body: DynamicVar<T, String>?) {
+        registerChild("toString", body)
     }
 
     /**
      * register child vars,can be nested
      */
-    fun registerChild(key: String, body: DynamicVar<T, Any>) {
-        handlers[key] = body
+    fun registerChild(key: String, body: DynamicVar<T, out Any>?) {
+        if (body == null) handlers.remove(key)
+        else handlers[key] = body
     }
 
     open fun resolve(context: PlaceHoldContext, obj: T, child: String, params: String?): Any? {

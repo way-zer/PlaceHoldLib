@@ -1,6 +1,7 @@
 package cf.wayzer.placehold.util
 
 sealed class VarTree {
+    abstract fun keys(prefix: List<String>): Set<String>
     abstract operator fun get(keys: List<String>): Any?
     abstract operator fun set(keys: List<String>, v: Any?)
     class Normal() : VarTree() {
@@ -29,7 +30,13 @@ sealed class VarTree {
             }
         }
 
+        override fun keys(prefix: List<String>): Set<String> {
+            if (prefix.isEmpty()) return sub.keys
+            return sub[prefix[0]]?.keys(prefix.drop(1)).orEmpty()
+        }
+
         override operator fun set(keys: List<String>, v: Any?) {
+            if (keys.contains("*")) error("Can't use '*' as key to set")
             when {
                 keys.isEmpty() -> self = v
                 v == null -> sub[keys[0]]?.set(keys.drop(1), v)
@@ -38,16 +45,24 @@ sealed class VarTree {
         }
 
         override operator fun get(keys: List<String>): Any? {
-            return if (keys.isEmpty())
-                self
-            else {
-                sub[keys[0]]?.get(keys.subList(1, keys.size))
+            return when {
+                keys.isEmpty() -> self
+                keys == listOf("*") -> sub.entries.sortedBy { it.key }.mapNotNull { it.value[emptyList()] }
+                else -> sub[keys[0]]?.get(keys.drop(1))
             }
         }
     }
 
     class Overlay(private val value: VarTree, private val overlay: VarTree) : VarTree() {
+        override fun keys(prefix: List<String>): Set<String> {
+            return overlay.keys(prefix) + value.keys(prefix)
+        }
+
         override fun get(keys: List<String>): Any? {
+            if (keys.lastOrNull() == "*") {
+                val prefix = keys.dropLast(1)
+                return keys(prefix).sorted().mapNotNull { get(prefix + it) }
+            }
             return overlay[keys] ?: value[keys]
         }
 
@@ -57,7 +72,18 @@ sealed class VarTree {
     }
 
     object Void : VarTree() {
+        override fun keys(prefix: List<String>): Set<String> {
+            return emptySet()
+        }
+
         override fun set(keys: List<String>, v: Any?) {}
         override fun get(keys: List<String>): Any? = null
+    }
+
+    companion object {
+        fun of(map: Map<String, Any?>): VarTree {
+            return if (map.isEmpty()) Void
+            else Normal(map)
+        }
     }
 }

@@ -90,4 +90,15 @@ class Test {
         "{o.a} {o.b} {o} {o.a}".with("o" to a).toString()
         Assert.assertEquals(1, count)
     }
+
+    @Test(expected = IllegalStateException::class)
+    fun testAllKeySet() {
+        PlaceHoldApi.registerGlobalVar("a.b.c.*", 0)
+    }
+
+    @Test
+    fun testAllKeyGet() {
+        PlaceHoldApi.registerGlobalVar("list.2", 2)
+        Assert.assertEquals("0,1,2", "{list.*}".with("list.0" to 0, "list.1" to 1).toString())
+    }
 }
