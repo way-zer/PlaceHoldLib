@@ -44,13 +44,10 @@ data class PlaceHoldContext(
         }
     }
 
-    private fun resolveVar(keys: List<String>, v: Any, params: String?): Any {
+    fun resolveVar(keys: List<String>, v: Any, params: String?): Any {
         var res: Any = v
         when (v) {
             is NOTFOUND -> throw NOTFOUND
-            is PlaceHoldContext -> {
-                res = createChild(v.text, v.vars).toString()
-            }
             is DynamicVar<*, *> -> {
                 @Suppress("UNCHECKED_CAST")
                 val vv = (v as DynamicVar<List<String>, *>).handle(this, keys, params)
@@ -60,7 +57,7 @@ data class PlaceHoldContext(
                 } else res = NOTFOUND
             }
         }
-        if (res != v) vars[keys] = res
+        if (res != v && keys.isNotEmpty()) vars[keys] = res
         return res
     }
 

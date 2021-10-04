@@ -99,6 +99,7 @@ class Test {
     @Test
     fun testAllKeyGet() {
         PlaceHoldApi.registerGlobalVar("list.2", 2)
-        Assert.assertEquals("0,1,2", "{list.*}".with("list.0" to 0, "list.1" to 1).toString())
+        PlaceHoldApi.registerGlobalVar("list.3", DynamicVar.v { "DD" })
+        Assert.assertEquals("0,1,2,DD", "{list.*}".with("list.0" to 0, "list.1" to 1).toString())
     }
 }

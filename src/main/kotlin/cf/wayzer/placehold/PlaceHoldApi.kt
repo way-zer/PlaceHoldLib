@@ -45,6 +45,9 @@ object PlaceHoldApi {
     init {
         registerGlobalVar(TemplateHandlerKey, TemplateHandler { _, it -> it })//Keep it origin
         typeBinder<Date>().registerToString(DateResolver())
+        typeBinder<PlaceHoldContext>().registerToString(DynamicVar.obj {
+            createChild(it.text,it.vars).toString()
+        })
         @Suppress("UNCHECKED_CAST")
         PlaceHoldContext.bindTypes[List::class.java] = ListTypeBinder() as TypeBinder<Any>
     }

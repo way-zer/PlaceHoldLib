@@ -29,7 +29,7 @@ fun interface TemplateHandler {
 
 fun interface DynamicVar<T : Any, G : Any> {
     /**
-     * @param obj bindType obj(T) or varName(String)
+     * @param obj bindType obj(T) or varName(List<String>, may be empty)
      * @param params may null when no params provided
      */
     fun handle(ctx: PlaceHoldContext, obj: T, params: String?): G?
