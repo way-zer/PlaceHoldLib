@@ -35,20 +35,35 @@ object PlaceHoldApi {
     /**
      * get binder for type
      */
-    @Suppress("UNCHECKED_CAST")
     fun <T : Any> typeBinder(cls: Class<T>): TypeBinder<T> {
+        @Suppress("UNCHECKED_CAST")
         return PlaceHoldContext.bindTypes.getOrPut(cls) { TypeBinder() } as TypeBinder<T>
+    }
+
+    /**
+     * replace binder for type
+     */
+    fun <T : Any> typeBinder(cls: Class<T>, binder: TypeBinder<T>): TypeBinder<T> {
+        @Suppress("UNCHECKED_CAST")
+        PlaceHoldContext.bindTypes[cls] = binder as TypeBinder<Any>
+        return binder
     }
 
     inline fun <reified T : Any> typeBinder() = typeBinder(T::class.java)
 
-    init {
-        registerGlobalVar(TemplateHandlerKey, TemplateHandler { _, it -> it })//Keep it origin
+    fun init() {
+        PlaceHoldContext.globalVars.clear()
+        PlaceHoldContext.bindTypes.clear()
+
         typeBinder<Date>().registerToString(DateResolver())
         typeBinder<PlaceHoldContext>().registerToString(DynamicVar.obj {
-            createChild(it.text,it.vars).toString()
+            createChild(it.text, it.vars).toString()
         })
         @Suppress("UNCHECKED_CAST")
         PlaceHoldContext.bindTypes[List::class.java] = ListTypeBinder() as TypeBinder<Any>
+    }
+
+    init {
+        init()
     }
 }

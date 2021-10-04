@@ -74,15 +74,16 @@ data class PlaceHoldContext(
     }
 
     override fun toString(): String {
-        val template = getVar(TemplateHandlerKey).let { it as TemplateHandler }.handle(this, text)
+        val template = getVar(TemplateHandlerKey)
+            .let { (it as? TemplateHandler)?.handle(this, text) ?: text }
         return varFormat.replace(template) {
             getVar(it.groupValues[1], true)?.toString() ?: it.value
         }
     }
 
     companion object {
-        val globalVars = VarTree.Normal()
-        val bindTypes = mutableMapOf<Class<out Any>, TypeBinder<Any>>()
+        internal val globalVars = VarTree.Normal()
+        internal val bindTypes = mutableMapOf<Class<out Any>, TypeBinder<Any>>()
         internal val globalContext = PlaceHoldContext("Global_Context", VarTree.Void)
         private val varFormat = Regex("[{]([^{}]+)[}]")
     }

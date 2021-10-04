@@ -1,6 +1,7 @@
 package cf.wayzer.placehold.util
 
 sealed class VarTree {
+    abstract fun clear()
     abstract fun keys(prefix: List<String>): Set<String>
     abstract operator fun get(keys: List<String>): Any?
     abstract operator fun set(keys: List<String>, v: Any?)
@@ -51,6 +52,11 @@ sealed class VarTree {
                 else -> sub[keys[0]]?.get(keys.drop(1))
             }
         }
+
+        override fun clear() {
+            (sub as? MutableMap<*, *>)?.clear()
+            self = null
+        }
     }
 
     class Overlay(private val value: VarTree, private val overlay: VarTree) : VarTree() {
@@ -69,6 +75,10 @@ sealed class VarTree {
         override fun set(keys: List<String>, v: Any?) {
             overlay[keys] = v
         }
+
+        override fun clear() {
+            throw UnsupportedOperationException()
+        }
     }
 
     object Void : VarTree() {
@@ -78,6 +88,7 @@ sealed class VarTree {
 
         override fun set(keys: List<String>, v: Any?) {}
         override fun get(keys: List<String>): Any? = null
+        override fun clear() = Unit
     }
 
     companion object {
