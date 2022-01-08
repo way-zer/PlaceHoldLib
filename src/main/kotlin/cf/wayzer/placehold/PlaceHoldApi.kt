@@ -51,6 +51,10 @@ object PlaceHoldApi {
 
     inline fun <reified T : Any> typeBinder() = typeBinder(T::class.java)
 
+    fun resetTypeBinder(cls: Class<*>) {
+        PlaceHoldContext.bindTypes.remove(cls)
+    }
+
     fun init() {
         PlaceHoldContext.globalVars.clear()
         PlaceHoldContext.bindTypes.clear()
