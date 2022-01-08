@@ -2,7 +2,6 @@ plugins {
     id 'org.jetbrains.kotlin.jvm' version '1.4.0'
     id "me.qoomon.git-versioning" version "2.1.1"
     id 'org.jetbrains.dokka' version '0.10.1'
-    id "com.jfrog.bintray" version "1.8.4"
 }
 
 apply plugin: "maven-publish"
@@ -20,7 +19,7 @@ gitVersioning.apply {
 }
 
 repositories {
-    jcenter()
+    mavenCentral()
     maven { url "https://maven.aliyun.com/repository/jcenter" }
 }
 
@@ -56,25 +55,5 @@ publishing {
             artifactId rootProject.name
             version rootProject.version
         }
-    }
-}
-
-bintray {
-    user = System.getenv('BINTRAY_USER')
-    key = System.getenv('BINTRAY_KEY')
-    publications = ['MyPublication']
-    dryRun = false
-    override = true
-    publish = true
-    pkg {
-        repo = "maven"
-        name = rootProject.group + ":" + rootProject.name
-        desc = 'A library for i18n in dynamic with strong variable supporting'
-        githubRepo = 'way-zer/I18nLibrary'
-        githubReleaseNotesFile = 'README.md'
-        websiteUrl = "https://github.com/${githubRepo}"
-        issueTrackerUrl = "https://github.com/${githubRepo}/issues"
-        vcsUrl = "https://github.com/${githubRepo}.git"
-        licenses = ['MIT']
     }
 }

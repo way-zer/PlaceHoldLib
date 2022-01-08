@@ -1,4 +1,5 @@
 # 一个支持嵌套的变量处理库(A library supporting nested placeHold)
+[![](https://jitpack.io/v/way-zer/PlaceHoldLib.svg)](https://jitpack.io/#way-zer/PlaceHoldLib)
 采用kotlin编写,可运行在jvm平台  
 Write in kotlin, can use on jvm platform
 ## 功能(Features)
@@ -6,6 +7,21 @@ Write in kotlin, can use on jvm platform
 - [x] 全局变量处理(global variable and provider)
 - [x] 嵌套变量处理(nested variable replacement)
 - [x] 支持参数,可用于格式化时间日期等(Support)
+## 使用(Use)
+Step 1. Add the JitPack repository to your build file
+```groovy
+allprojects {
+    repositories {
+        maven { url 'https://jitpack.io' }
+    }
+}
+```
+Step 2. Add the dependency
+```groovy
+dependencies {
+    implementation 'com.github.way-zer:PlaceHoldLib:Tag'
+}
+```
 ## 快速开始(Quick Start)
 ```kotlin
     import cf.wayzer.placehold.PlaceHoldApi.with
