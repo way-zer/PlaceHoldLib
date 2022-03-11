@@ -1,12 +1,28 @@
 package cf.wayzer.placehold
 
 import cf.wayzer.placehold.util.VarTree
+import java.util.*
 
 @Suppress("MemberVisibilityCanBePrivate", "unused")
 data class PlaceHoldContext(
     val text: String,
     var vars: VarTree
 ) {
+    class ResolveContext(
+        v: Any,
+        val keys: List<String>,
+        val params: String?,
+        var obj: Any? = null,
+    ) {
+        var v: Any = v
+            set(value) {
+                obj = asObj(value) ?: obj
+                field = value
+            }
+        var resolved = 0
+        val resolvedKey get() = keys.subList(0, resolved)
+    }
+
     /**
      * will add [vars] to child as fallback
      */
@@ -21,55 +37,93 @@ data class PlaceHoldContext(
      */
     fun getVar(name: String, forString: Boolean = false): Any? {
         val nameS = name.split(":", limit = 2)
-        val keys = nameS[0].split(".")
+        var keys = nameS[0].split(".")
+        if (forString) keys = keys + ToString
         val params = nameS.getOrNull(1)
 
-        try {
-            val mergedVars = VarTree.Overlay(vars, globalVars)
-            for (i in keys.size downTo 1) {
-                val subKeys = keys.subList(0, i)
-                var v = mergedVars[subKeys] ?: continue
-                v = resolveVar(subKeys, v, params)
-                for (ii in (i + 1)..keys.size) {
-                    v = typeResolve(v, keys[ii - 1], params) ?: NOTFOUND
-                    vars[keys.subList(0, ii)] = v
-                    v = resolveVar(subKeys, v, params)
-                }
-                return if (forString) typeResolve(v, params = params) ?: v.toString()
-                else v
-            }
-            return null
+        return resolveVar(VarTree.Overlay(vars, globalVars), keys, params)
+    }
+
+
+    fun resolveVar(v: Any, keys: List<String> = listOf(ToString), params: String? = null, obj: Any? = null): Any? {
+        return try {
+            ResolveContext(v, keys, params, obj).apply { resolve() }.v
         } catch (e: NOTFOUND) {
-            return null
+            null
         }
     }
 
-    fun resolveVar(keys: List<String>, v: Any, params: String?): Any {
-        var res: Any = v
-        when (v) {
+    private tailrec fun ResolveContext.resolve() {
+        if (resolved > 0 && !resolvedKey.contains("*")) {//cache
+            vars[resolvedKey] = v
+        }
+        when (val vv = v) {
             is NOTFOUND -> throw NOTFOUND
+            is PlaceHoldContext -> {
+                v = createChild(vv.text, vv.vars)
+                if (keys.getOrNull(resolved) == ToString) {
+                    v = (v as PlaceHoldContext).toString()
+                    resolved++
+                }
+                if (resolved < keys.size) throw NOTFOUND
+                return //end
+            }
+            is VarContainer<*> -> {
+                var newObj: Any? = null
+                val containers = LinkedList<VarContainer<Any>>()
+                @Suppress("UNCHECKED_CAST")
+                containers.add(vv as VarContainer<Any>)
+                while (resolved < keys.size) {
+                    val sub = containers.last.resolve(this@PlaceHoldContext, obj ?: keys.subList(0, resolved + 1), keys[resolved])
+                    if (sub == null) break
+                    resolved++
+                    if (sub is VarContainer<*>)
+                        @Suppress("UNCHECKED_CAST")
+                        containers.add(sub as VarContainer<Any>)
+                    else {
+                        newObj = sub
+                        break
+                    }
+                }
+                var first = true
+                while (newObj == null && containers.isNotEmpty()) {
+                    newObj = containers.removeLast().resolve(this@PlaceHoldContext, obj ?: resolvedKey, VarTree.Self)
+                    if (first) first = false
+                    else resolved--
+                }
+                if (newObj == null) throw NOTFOUND
+                v = newObj
+                obj = asObj(newObj) ?: obj
+                return resolve()
+            }
             is DynamicVar<*, *> -> {
                 @Suppress("UNCHECKED_CAST")
-                val vv = (v as DynamicVar<List<String>, *>).handle(this, keys, params)
-                if (vv != null) {
-                    res = vv
-                    resolveVar(keys, vv, params)
-                } else res = NOTFOUND
+                v = (v as DynamicVar<Any, *>).handle(this@PlaceHoldContext, obj ?: resolvedKey, params) ?: throw NOTFOUND
+                return resolve()
+            }
+            else -> {
+                if (resolved < keys.size) {
+                    val newObj = typeResolve(v, keys[resolved]) ?: throw NOTFOUND
+                    resolved++
+                    obj = asObj(newObj) ?: v
+                    v = newObj
+                    return resolve()
+                }
+                return
             }
         }
-        if (res != v && keys.isNotEmpty()) vars[keys] = res
-        return res
     }
 
-    fun <T : Any> typeResolve(obj: T, child: String = "toString", params: String? = null): Any? {
+    private fun <T : Any> typeResolve(obj: T, child: String = ToString): Any? {
         var cls: Class<out Any>? = obj::class.java
         while (cls != null) {
-            bindTypes[cls]?.resolve(this, obj, child, params)?.let { return it }
+            bindTypes[cls]?.resolve(this, obj, child)?.let { return it }
             cls.interfaces.forEach { int ->
-                bindTypes[int]?.resolve(this, obj, child, params)?.let { return it }
+                bindTypes[int]?.resolve(this, obj, child)?.let { return it }
             }
             cls = cls.superclass
         }
+        if (child == ToString) return obj.toString()
         return null
     }
 
@@ -82,9 +136,12 @@ data class PlaceHoldContext(
     }
 
     companion object {
+        const val Self = "self"
+        const val ToString = "toString"
         internal val globalVars = VarTree.Normal()
         internal val bindTypes = mutableMapOf<Class<out Any>, TypeBinder<Any>>()
         internal val globalContext = PlaceHoldContext("Global_Context", VarTree.Void)
         private val varFormat = Regex("[{]([^{}]+)[}]")
+        fun asObj(v: Any): Any? = v.takeUnless { it == NOTFOUND || it is VarContainer<*> || it is DynamicVar<*, *> }
     }
 }

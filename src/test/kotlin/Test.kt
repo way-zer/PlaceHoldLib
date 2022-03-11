@@ -75,7 +75,7 @@ class Test {
 
     @Test
     fun testGlobalContext() {
-        Assert.assertEquals("01-01", PlaceHoldApi.GlobalContext.typeResolve(Date(0)).toString())
+        Assert.assertEquals("01-01", PlaceHoldApi.GlobalContext.resolveVar(Date(0)))
     }
 
     @Test
@@ -86,7 +86,9 @@ class Test {
             registerToString { _, obj, _ -> obj.toString() }
         }
         var count = 0
-        val a = DynamicVar.v { count++;Data(22, "ab") }
+        val a = DynamicVar.v {
+            count++;Data(22, "ab")
+        }
         "{o.a} {o.b} {o} {o.a}".with("o" to a).toString()
         Assert.assertEquals(1, count)
     }
@@ -101,5 +103,24 @@ class Test {
         PlaceHoldApi.registerGlobalVar("list.2", 2)
         PlaceHoldApi.registerGlobalVar("list.3", DynamicVar.v { "DD" })
         Assert.assertEquals("0,1,2,DD", "{list.*}".with("list.0" to 0, "list.1" to 1).toString())
+    }
+
+    @Test
+    fun testTypeAllKeyGet() {
+        PlaceHoldApi.typeBinder<Data>().apply {
+            registerChild("list.1", DynamicVar.obj { it.a })
+            registerChild("list.2", DynamicVar.obj { it.b })
+        }
+        Assert.assertEquals("8,10", "{o.list.*}".with("o" to Data(8, "10")).toString())
+    }
+
+    @Test
+    fun testFunctionVar() {
+        PlaceHoldApi.registerGlobalVar("upperCase", DynamicVar.params {
+            if (it == null) return@params "{upperCase:NoParam}"
+            (getVar(it, forString = true) as String).toUpperCase()
+        })
+        Assert.assertEquals("{upperCase:NoParam}", "{upperCase}".with().toString())
+        Assert.assertEquals("UPPER", "{upperCase:a}".with("a" to "upper").toString())
     }
 }

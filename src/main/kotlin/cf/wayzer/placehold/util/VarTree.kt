@@ -1,29 +1,17 @@
 package cf.wayzer.placehold.util
 
-sealed class VarTree {
+import cf.wayzer.placehold.PlaceHoldContext
+import cf.wayzer.placehold.VarContainer
+
+sealed class VarTree : VarContainer<Any> {
+    abstract val keys: Set<String>
     abstract fun clear()
-    abstract fun keys(prefix: List<String>): Set<String>
-    abstract operator fun get(keys: List<String>): Any?
+    abstract override fun resolve(ctx: PlaceHoldContext, obj: Any, child: String): Any?
     abstract operator fun set(keys: List<String>, v: Any?)
     class Normal() : VarTree() {
         private var self: Any? = null
         private var sub = emptyMap<String, VarTree>()
-        private fun setSub(key: String, v: VarTree?) {
-            when {
-                v == null -> (sub as? MutableMap)?.remove(key)
-                sub is MutableMap -> (sub as MutableMap<String, VarTree>)[key] = v
-                else -> sub = mutableMapOf(key to v)
-            }
-        }
-
-        private fun getOrCreateSub(key: String): VarTree {
-            var v = sub[key]
-            if (v == null) {
-                v = Normal()
-                setSub(key, v)
-            }
-            return v
-        }
+        override val keys: Set<String> get() = sub.keys
 
         constructor(map: Map<String, Any?>) : this() {
             map.forEach { (t, u) ->
@@ -31,25 +19,23 @@ sealed class VarTree {
             }
         }
 
-        override fun keys(prefix: List<String>): Set<String> {
-            if (prefix.isEmpty()) return sub.keys
-            return sub[prefix[0]]?.keys(prefix.drop(1)).orEmpty()
+        override fun resolve(ctx: PlaceHoldContext, obj: Any, child: String): Any? {
+            return when (child) {
+                "*" -> ListWithContext(obj, sub.entries.sortedBy { it.key }.map { it.value })
+                Self -> self
+                else -> sub[child]
+            }
         }
 
         override operator fun set(keys: List<String>, v: Any?) {
             if (keys.contains("*")) error("Can't use '*' as key to set")
             when {
                 keys.isEmpty() -> self = v
-                v == null -> sub[keys[0]]?.set(keys.drop(1), v)
-                else -> getOrCreateSub(keys[0])[keys.drop(1)] = v
-            }
-        }
-
-        override operator fun get(keys: List<String>): Any? {
-            return when {
-                keys.isEmpty() -> self
-                keys == listOf("*") -> sub.entries.sortedBy { it.key }.mapNotNull { it.value[emptyList()] }
-                else -> sub[keys[0]]?.get(keys.drop(1))
+                v == null -> sub[keys[0]]?.set(keys.drop(1), null)
+                else -> {
+                    if (sub !is MutableMap) sub = mutableMapOf()
+                    (sub as MutableMap).getOrPut(keys[0], ::Normal)[keys.drop(1)] = v
+                }
             }
         }
 
@@ -60,16 +46,16 @@ sealed class VarTree {
     }
 
     class Overlay(private val value: VarTree, private val overlay: VarTree) : VarTree() {
-        override fun keys(prefix: List<String>): Set<String> {
-            return overlay.keys(prefix) + value.keys(prefix)
-        }
+        override val keys: Set<String> get() = overlay.keys + value.keys
 
-        override fun get(keys: List<String>): Any? {
-            if (keys.lastOrNull() == "*") {
-                val prefix = keys.dropLast(1)
-                return keys(prefix).sorted().mapNotNull { get(prefix + it) }
-            }
-            return overlay[keys] ?: value[keys]
+        override fun resolve(ctx: PlaceHoldContext, obj: Any, child: String): Any? {
+            if (child == "*")
+                return ListWithContext(obj, keys.sorted().mapNotNull { resolve(ctx, obj, it) })
+            val v = value.resolve(ctx, obj, child)
+            val overV = overlay.resolve(ctx, obj, child)
+            if (v is VarTree && overV is VarTree)
+                return Overlay(v, overV)
+            return overV ?: v
         }
 
         override fun set(keys: List<String>, v: Any?) {
@@ -82,16 +68,17 @@ sealed class VarTree {
     }
 
     object Void : VarTree() {
-        override fun keys(prefix: List<String>): Set<String> {
-            return emptySet()
-        }
-
+        override val keys: Set<String> get() = emptySet()
         override fun set(keys: List<String>, v: Any?) {}
-        override fun get(keys: List<String>): Any? = null
+        override fun resolve(ctx: PlaceHoldContext, obj: Any, child: String): Any? = null
         override fun clear() = Unit
     }
 
+    class ListWithContext<T>(val obj: Any, list: List<T>) : List<T> by list
+
     companion object {
+        const val Self = "self"
+
         fun of(map: Map<String, Any?>): VarTree {
             return if (map.isEmpty()) Void
             else Normal(map)
