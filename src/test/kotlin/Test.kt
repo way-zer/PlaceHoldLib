@@ -118,7 +118,7 @@ class Test {
     fun testFunctionVar() {
         PlaceHoldApi.registerGlobalVar("upperCase", DynamicVar.params {
             if (it == null) return@params "{upperCase:NoParam}"
-            (getVar(it, forString = true) as String).toUpperCase()
+            getVarString(it)?.toUpperCase()
         })
         Assert.assertEquals("{upperCase:NoParam}", "{upperCase}".with().toString())
         Assert.assertEquals("UPPER", "{upperCase:a}".with("a" to "upper").toString())
