@@ -4,12 +4,13 @@ import cf.wayzer.placehold.PlaceHoldContext
 import cf.wayzer.placehold.VarContainer
 
 sealed class VarTree : VarContainer<Any> {
+    abstract val self: Any?
     abstract val keys: Set<String>
     abstract fun clear()
     abstract override fun resolve(ctx: PlaceHoldContext, obj: Any, child: String): Any?
     abstract operator fun set(keys: List<String>, v: Any?)
     class Normal() : VarTree() {
-        private var self: Any? = null
+        override var self: Any? = null
         private var sub = emptyMap<String, VarTree>()
         override val keys: Set<String> get() = sub.keys
 
@@ -21,7 +22,7 @@ sealed class VarTree : VarContainer<Any> {
 
         override fun resolve(ctx: PlaceHoldContext, obj: Any, child: String): Any? {
             return when (child) {
-                "*" -> ListWithContext(obj, sub.entries.sortedBy { it.key }.map { it.value })
+                "*" -> ListWithContext(obj, sub.entries.sortedBy { it.key }.mapNotNull { it.value.self })
                 Self -> self
                 else -> sub[child]
             }
@@ -46,11 +47,12 @@ sealed class VarTree : VarContainer<Any> {
     }
 
     class Overlay(private val value: VarTree, private val overlay: VarTree) : VarTree() {
+        override val self: Any? get() = overlay.self ?: value.self
         override val keys: Set<String> get() = overlay.keys + value.keys
 
         override fun resolve(ctx: PlaceHoldContext, obj: Any, child: String): Any? {
             if (child == "*")
-                return ListWithContext(obj, keys.sorted().mapNotNull { resolve(ctx, obj, it) })
+                return ListWithContext(obj, keys.sorted().mapNotNull { (resolve(ctx, obj, it) as VarTree).self })
             val v = value.resolve(ctx, obj, child)
             val overV = overlay.resolve(ctx, obj, child)
             if (v is VarTree && overV is VarTree)
@@ -68,6 +70,7 @@ sealed class VarTree : VarContainer<Any> {
     }
 
     object Void : VarTree() {
+        override val self: Any? get() = null
         override val keys: Set<String> get() = emptySet()
         override fun set(keys: List<String>, v: Any?) {}
         override fun resolve(ctx: PlaceHoldContext, obj: Any, child: String): Any? = null
