@@ -19,7 +19,7 @@ data class PlaceHoldContext(
     fun getVar(name: String): Any? {
         val nameS = name.split(":", limit = 2)
         return ResolveContext(
-            VarTree.Overlay(vars, globalVars), keys = nameS[0],
+            VarTree.Overlay(globalVars, vars), keys = nameS[0],
             params = nameS.getOrNull(1), cache = true
         ).resolve()
     }
@@ -27,7 +27,7 @@ data class PlaceHoldContext(
     fun getVarString(name: String): String? {
         val nameS = name.split(":", limit = 2)
         return ResolveContext(
-            VarTree.Overlay(vars, globalVars), keys = "${nameS[0]}.$ToString",
+            VarTree.Overlay(globalVars, vars), keys = "${nameS[0]}.$ToString",
             params = nameS.getOrNull(1), cache = true
         ).resolve() as String?
     }
