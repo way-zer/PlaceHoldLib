@@ -10,9 +10,8 @@ class ListTypeBinder : TypeBinder<List<*>>() {
         return when (child) {
             "toString" -> DynamicVar.params { params ->
                 val objRaw = (obj as? VarTree.ListWithContext<*>)?.obj ?: obj
-                obj.filterNotNull().joinToString(params ?: ",") {
-                    ctx.resolveVar(it, obj = objRaw)?.toString() ?: it.toString()
-                }
+                obj.mapNotNull { it?.let { ctx.resolveVar(it, obj=objRaw)?.toString() } }
+                    .joinToString(params ?: ",")
             }
             "first" -> obj.firstOrNull()
             "last" -> obj.lastOrNull()

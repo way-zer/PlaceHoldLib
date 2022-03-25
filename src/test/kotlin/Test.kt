@@ -123,4 +123,18 @@ class Test {
         Assert.assertEquals("{upperCase:NoParam}", "{upperCase}".with().toString())
         Assert.assertEquals("UPPER", "{upperCase:a}".with("a" to "upper").toString())
     }
+
+    @Test
+    fun testLocalOverlay() {
+        PlaceHoldApi.registerGlobalVar("v", "global")
+        Assert.assertEquals("local", "{v}".with("v" to "local").toString())
+    }
+
+    @Test
+    fun testVarTreeAndDynamic() {
+        Assert.assertEquals(
+            "",
+            "{v.*}".with("v.a" to DynamicVar.v { null }).toString()
+        )
+    }
 }
