@@ -6,7 +6,7 @@ import java.util.*
 @Suppress("MemberVisibilityCanBePrivate", "unused")
 data class PlaceHoldContext(
     val text: String,
-    var vars: VarTree
+    val vars: VarTree
 ) {
 
     /**
