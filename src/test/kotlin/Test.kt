@@ -3,6 +3,7 @@ import cf.wayzer.placehold.PlaceHoldApi
 import cf.wayzer.placehold.PlaceHoldApi.with
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.assertThrows
 import java.util.*
 
@@ -139,5 +140,19 @@ class Test {
             "",
             "{v.*}".with("v.a" to DynamicVar.v { null }).toString()
         )
+    }
+
+    @Test
+    fun testCacheBug() {
+        val sub = "{a}".with()
+        Assertions.assertEquals("a", "{sub}".with("sub" to sub, "a" to "a").toString())
+        Assertions.assertEquals("b", "{sub}".with("sub" to sub, "a" to "b").toString())
+    }
+
+    @Test
+    @Disabled //TODO fix this
+    fun testCacheBug2() {
+        val sub = "{a}".with("a" to "a")
+        Assertions.assertEquals("ba", "{a}{sub}".with("sub" to sub, "a" to "b").toString())
     }
 }
