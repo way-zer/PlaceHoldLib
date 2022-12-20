@@ -35,6 +35,13 @@ compileTestKotlin {
     kotlinOptions.jvmTarget = "1.8"
 }
 
+tasks.test {
+    useJUnitPlatform()
+    testLogging {
+        events("passed", "skipped", "failed")
+    }
+}
+
 task javadocJar(type: Jar, dependsOn: dokkaJavadoc) {
     from dokkaJavadoc.outputDirectory
     archiveClassifier.set("javadoc")

@@ -60,9 +60,6 @@ object PlaceHoldApi {
         PlaceHoldContext.bindTypes.clear()
 
         typeBinder<Date>().registerToString(DateResolver())
-        typeBinder<PlaceHoldContext>().registerToString(DynamicVar.obj {
-            createChild(it.text, it.vars).toString()
-        })
         @Suppress("UNCHECKED_CAST")
         PlaceHoldContext.bindTypes[List::class.java] = ListTypeBinder() as TypeBinder<Any>
     }

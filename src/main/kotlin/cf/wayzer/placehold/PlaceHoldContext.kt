@@ -12,8 +12,9 @@ data class PlaceHoldContext(
     /**
      * will add [vars] to child as fallback
      */
-    fun createChild(newText: String = text, overlay: VarTree = VarTree.Normal()): PlaceHoldContext {
-        return PlaceHoldContext(newText, VarTree.Overlay(vars, overlay))
+    fun createChild(newText: String = text, overlay: VarTree = VarTree.Void): PlaceHoldContext {
+        val cached = VarTree.Overlay(overlay, VarTree.Normal())
+        return PlaceHoldContext(newText, VarTree.Overlay(vars, cached))
     }
 
     fun getVar(name: String): Any? {
@@ -32,6 +33,7 @@ data class PlaceHoldContext(
         ).resolve() as String?
     }
 
+    /** purely, no [globalVars] and cache, for resolve [DynamicVar]*/
     fun resolveVar(v: Any, keys: String = ToString, params: String? = null, obj: Any? = null): Any? {
         return ResolveContext(v, keys, params, obj).resolve()
     }
@@ -40,8 +42,8 @@ data class PlaceHoldContext(
         v: Any,
         keys: String = ToString,
         val params: String?,
-        var obj: Any? = null,
-        val cache: Boolean = false
+        var obj: Any? = asObj(v),
+        private var cache: Boolean = false
     ) {
         val keys = keys.split(".").dropWhile { it.isBlank() }
         var v: Any = v
@@ -63,7 +65,6 @@ data class PlaceHoldContext(
             if (cache && resolved > 0 && !resolvedKey.contains("*")) {//cache
                 vars[resolvedKey] = v
             }
-            obj = asObj(v) ?: obj
             when (val vv = v) {
                 is NOTFOUND -> throw NOTFOUND
                 is PlaceHoldContext -> {
@@ -75,11 +76,13 @@ data class PlaceHoldContext(
                     if (resolved < keys.size) throw NOTFOUND
                     return //end
                 }
+
                 is VarContainer<*> -> {
                     var newObj: Any? = null
                     val containers = LinkedList<VarContainer<Any>>()
                     @Suppress("UNCHECKED_CAST")
                     containers.add(vv as VarContainer<Any>)
+                    //原地自旋解析，直到下一个值不是VarContainer
                     while (resolved < keys.size) {
                         val sub = containers.last.resolve(this@PlaceHoldContext, obj ?: keys.subList(0, resolved + 1), keys[resolved]) ?: break
                         resolved++
@@ -91,6 +94,7 @@ data class PlaceHoldContext(
                             break
                         }
                     }
+                    //有可能走到VarTree的空子树中，故需要回溯
                     var first = true
                     while (newObj == null && containers.isNotEmpty()) {
                         newObj = containers.removeLast().resolve(this@PlaceHoldContext, obj ?: resolvedKey, VarTree.Self)
@@ -101,11 +105,15 @@ data class PlaceHoldContext(
                     v = newObj
                     return resolve0()
                 }
+
                 is DynamicVar<*, *> -> {
                     @Suppress("UNCHECKED_CAST")
                     v = (v as DynamicVar<Any, *>).handle(this@PlaceHoldContext, obj ?: resolvedKey, params) ?: throw NOTFOUND
+                    if (cache && params != null)
+                        cache = false
                     return resolve0()
                 }
+
                 else -> {
                     if (resolved < keys.size) {
                         val newObj = typeResolve(this@PlaceHoldContext, v, keys[resolved]) ?: throw NOTFOUND
