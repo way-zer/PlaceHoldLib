@@ -7,6 +7,8 @@ import java.util.*
 
 @Suppress("MemberVisibilityCanBePrivate", "unused")
 object PlaceHoldApi {
+    var cacheMode by PlaceHoldContext.Companion::cacheMode
+
     /**
      * use to resolve global vars
      */
@@ -56,6 +58,7 @@ object PlaceHoldApi {
     }
 
     fun init() {
+        cacheMode = PlaceHoldContext.CacheMode.Default
         PlaceHoldContext.globalVars.clear()
         PlaceHoldContext.bindTypes.clear()
 

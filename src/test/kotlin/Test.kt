@@ -1,9 +1,9 @@
 import cf.wayzer.placehold.DynamicVar
 import cf.wayzer.placehold.PlaceHoldApi
 import cf.wayzer.placehold.PlaceHoldApi.with
+import cf.wayzer.placehold.PlaceHoldContext
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.assertThrows
 import java.util.*
 
@@ -150,9 +150,13 @@ class Test {
     }
 
     @Test
-    @Disabled //TODO fix this
     fun testCacheBug2() {
+        PlaceHoldApi.cacheMode = PlaceHoldContext.CacheMode.Strict
         val sub = "{a}".with("a" to "a")
         Assertions.assertEquals("ba", "{a}{sub}".with("sub" to sub, "a" to "b").toString())
+
+        PlaceHoldApi.cacheMode = PlaceHoldContext.CacheMode.Default
+        val sub1 = "{a}".with("a" to "a")
+        Assertions.assertEquals("bb", "{a}{sub}".with("sub" to sub1, "a" to "b").toString())
     }
 }

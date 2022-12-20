@@ -8,19 +8,21 @@ data class PlaceHoldContext(
     val text: String,
     val vars: VarTree
 ) {
+    val cache = if (cacheMode == CacheMode.Strict) VarTree.Normal() else VarTree.Void
+    val cachedVars = if (cacheMode == CacheMode.Strict) VarTree.Overlay(vars, cache) else vars
 
     /**
      * will add [vars] to child as fallback
      */
     fun createChild(newText: String = text, overlay: VarTree = VarTree.Void): PlaceHoldContext {
-        val cached = VarTree.Overlay(overlay, VarTree.Normal())
+        val cached = if (cacheMode == CacheMode.Default) VarTree.Overlay(overlay, VarTree.Normal()) else overlay
         return PlaceHoldContext(newText, VarTree.Overlay(vars, cached))
     }
 
     fun getVar(name: String): Any? {
         val nameS = name.split(":", limit = 2)
         return ResolveContext(
-            VarTree.Overlay(globalVars, vars), keys = nameS[0],
+            VarTree.Overlay(globalVars, cachedVars), keys = nameS[0],
             params = nameS.getOrNull(1), cache = true
         ).resolve()
     }
@@ -28,7 +30,7 @@ data class PlaceHoldContext(
     fun getVarString(name: String): String? {
         val nameS = name.split(":", limit = 2)
         return ResolveContext(
-            VarTree.Overlay(globalVars, vars), keys = "${nameS[0]}.$ToString",
+            VarTree.Overlay(globalVars, cachedVars), keys = "${nameS[0]}.$ToString",
             params = nameS.getOrNull(1), cache = true
         ).resolve() as String?
     }
@@ -45,6 +47,11 @@ data class PlaceHoldContext(
         var obj: Any? = asObj(v),
         private var cache: Boolean = false
     ) {
+        init {
+            if (cacheMode == CacheMode.Disable)
+                cache = false
+        }
+
         val keys = keys.split(".").dropWhile { it.isBlank() }
         var v: Any = v
             set(value) {
@@ -63,7 +70,7 @@ data class PlaceHoldContext(
 
         private tailrec fun resolve0() {
             if (cache && resolved > 0 && !resolvedKey.contains("*")) {//cache
-                vars[resolvedKey] = v
+                cachedVars[resolvedKey] = v
             }
             when (val vv = v) {
                 is NOTFOUND -> throw NOTFOUND
@@ -136,11 +143,24 @@ data class PlaceHoldContext(
         }
     }
 
+    enum class CacheMode {
+        /** 关闭缓存机制 */
+        Disable,
+
+        /** 对ChildContext采用独立的缓存。但存在父域变量影响子域变量读的问题[Test.testCacheBug2] */
+        Default,
+
+        /** 对每个PlaceHoldContext采用独立的缓存，*/
+        Strict
+    }
+
     companion object {
         const val ToString = "toString"
         internal val globalVars = VarTree.Normal()
         internal val bindTypes = mutableMapOf<Class<out Any>, TypeBinder<Any>>()
         internal val globalContext = PlaceHoldContext("Global_Context", VarTree.Void)
+        internal var cacheMode = CacheMode.Default
+
         private val varFormat = Regex("[{]([^{}]+)[}]")
         private fun asObj(v: Any): Any? = v.takeUnless { it == NOTFOUND || it is VarContainer<*> || it is DynamicVar<*, *> }
         private fun <T : Any> typeResolve(ctx: PlaceHoldContext, obj: T, child: String = ToString): Any? {
