@@ -1,10 +1,13 @@
 import cf.wayzer.placehold.*
+import cf.wayzer.placehold.PlaceHoldApi.registerGlobalVar
 import cf.wayzer.placehold.PlaceHoldApi.with
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.assertThrows
+import java.io.File
+import java.lang.IllegalArgumentException
 import java.util.*
 
 class Test {
@@ -147,15 +150,43 @@ class Test {
     }
 
     @Test
-    fun testCacheBug1() {
-        val sub = "{a}".with()
-        Assertions.assertEquals("a", "{sub}".with("sub" to sub, "a" to "a").toString())
-        Assertions.assertEquals("b", "{sub}".with("sub" to sub, "a" to "b").toString())
+    fun testCacheBug() {
+        val sub1 = "{a}".with()
+        Assertions.assertEquals("a", "{sub}".with("sub" to sub1, "a" to "a").toString())
+        Assertions.assertEquals("b", "{sub}".with("sub" to sub1, "a" to "b").toString())
+        val sub2 = "{a}".with("a" to "a")
+        Assertions.assertEquals("ba", "{a}{sub}".with("sub" to sub2, "a" to "b").toString())
     }
 
+    interface CustomBuilderMessage {}
+
     @Test
-    fun testCacheBug2() {
-        val sub = "{a}".with("a" to "a")
-        Assertions.assertEquals("ba", "{a}{sub}".with("sub" to sub, "a" to "b").toString())
+    fun testCustomBuilder() {
+        registerGlobalVar("image", DynamicVar.v { "{ERR: receiver not support image}" })
+        val text = "这是文字{image imageFile}这是文字".with("imageFile" to File("image.png"))
+        Assertions.assertEquals("这是文字{ERR: receiver not support image}这是文字", text.toString())
+
+
+        data class Text(val value: String) : CustomBuilderMessage
+        data class Image(val value: String) : CustomBuilderMessage
+
+        val builderCtx = VarString(
+            "", mapOf(
+                "image" to DynamicVar.params {
+                    Image("{OUTPUT IMAGE ${it.get<File>(0)}}")
+                },
+            ), cache = null
+        )
+        val resolved = builderCtx.createChild(text.text, text.vars).parsed().map { token ->
+            if (token is String) Text(token) else (token as VarString.VarToken).let {
+                val obj = it.get()
+                if (obj is CustomBuilderMessage) return@map obj
+                Text(it.getForString(obj))
+            }
+        }
+        Assertions.assertEquals(3, resolved.size)
+        Assertions.assertTrue(resolved[0] is Text)
+        Assertions.assertTrue(resolved[1] is Image)
+        Assertions.assertTrue(resolved[2] is Text)
     }
 }

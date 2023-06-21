@@ -70,7 +70,7 @@ object TokenParser {
         text.readTokens(0, tokens)
 
     /** @return List<String|Expr> */
-    fun parse(text: String): List<Any/*String|Expr*/> {
+    fun parse(text: String): List<Any/**[String]|[Expr]*/> {
         if (!text.contains('{')) return listOf(text)//fast path
 
         return buildList {

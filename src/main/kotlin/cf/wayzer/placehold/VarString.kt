@@ -1,7 +1,6 @@
 package cf.wayzer.placehold
 
 import java.util.*
-import kotlin.IllegalArgumentException
 
 /**
  * 新变量解析流程设计
@@ -54,9 +53,9 @@ data class VarString(
             }
         }
 
-        fun getForString(): String {
+        fun getForString(alreadyGot: Any? = Unit): String {
             return try {
-                val obj = get() ?: "{ERR: not found $name}"
+                val obj = (if (alreadyGot == Unit) get() else alreadyGot) ?: "{ERR: not found $name}"
                 return resolveVarForString(obj, params) ?: "{ERR($name): resolve null}"
             } catch (e: IllegalArgumentException) {
                 "{ERR: ${e.message}}"
@@ -158,7 +157,7 @@ data class VarString(
         return v
     }
 
-    fun parsed(): List<Any/*String|VarToken*/> {
+    fun parsed(): List<Any/**[String]|[VarToken]*/> {
         val template = resolveVar(listOf(TemplateHandlerKey))
             .let { (it as? TemplateHandler)?.run { handle(text) } ?: text }
         return TokenParser.parse(template).map {
@@ -176,8 +175,9 @@ data class VarString(
 
     override fun toString(): String {
         val parsed = parsed()
-        if (parsed.size == 1) return parsed[0].toString()
-        return parsed.joinToString("") { if (it is String) it else (it as VarToken).getForString() }
+        return parsed.joinToString("") {
+            if (it is String) it else (it as VarToken).getForString()
+        }
     }
 
     companion object {
