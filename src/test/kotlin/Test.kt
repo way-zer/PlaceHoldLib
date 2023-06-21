@@ -84,7 +84,7 @@ class Test {
     @Test
     fun testDateTypeBinder() {
         Assertions.assertEquals("01-01", "{t}".with("t" to Date(0)).toString())
-        Assertions.assertEquals("1970-01-01", "{t \"yyyy-MM-dd\"}".with("t" to Date(0)).toString())
+        Assertions.assertEquals("1970-01-01", """{t "yyyy-MM-dd"}""".with("t" to Date(0)).toString())
     }
 
     @Test
