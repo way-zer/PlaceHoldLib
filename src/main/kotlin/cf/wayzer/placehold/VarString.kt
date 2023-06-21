@@ -72,7 +72,7 @@ data class VarString(
      * will add [vars] to child as fallback
      */
     fun createChild(newText: String = text, vars: Map<String, Any?> = emptyMap()): VarString =
-        copy(text = newText, vars = vars, parent = this)
+        VarString(newText, vars, parent = this)
 
     /** 解析a.b.c变量,末端未unwrap */
     fun resolveVar(keys: List<String>): Any? {
@@ -157,7 +157,9 @@ data class VarString(
         return v
     }
 
-    fun parsed(): List<Any/**[String]|[VarToken]*/> {
+    fun parsed(): List<Any
+            /**[String]|[VarToken]*/
+            > {
         val template = resolveVar(listOf(TemplateHandlerKey))
             .let { (it as? TemplateHandler)?.run { handle(text) } ?: text }
         return TokenParser.parse(template).map {

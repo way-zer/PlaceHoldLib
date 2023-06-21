@@ -38,7 +38,7 @@ class Test {
 
     @Test
     fun nestedVar() {
-        PlaceHoldApi.registerGlobalVar("nest3", "nested {v}".with())
+        registerGlobalVar("nest3", "nested {v}".with())
         PlaceHoldApi.registerGlobalDynamicVar("nestVar") { _, _ -> VarToken("nest3").get() }
         Assertions.assertEquals("nested Var", "{nestVar}".with("v" to "Var").toString())
     }
@@ -50,7 +50,6 @@ class Test {
         Assertions.assertEquals("0", "{list.first}".with("list" to list).toString())
         Assertions.assertEquals("3", "{list.3}".with("list" to list).toString())
         Assertions.assertEquals("5", "{list.last}".with("list" to list).toString())
-        Assertions.assertEquals("0,1,2,3,4,5", "{list|join}".with("list" to list).toString())
     }
 
 
@@ -117,26 +116,8 @@ class Test {
     }
 
     @Test
-    fun testAllKeyGet() {
-        PlaceHoldApi.registerGlobalVar("list.2", 2)
-        PlaceHoldApi.registerGlobalVar("list.3", DynamicVar.v { "DD" })
-        PlaceHoldApi.registerGlobalVar("list.null", DynamicVar.v { null })
-        Assertions.assertEquals("0,1,2,DD", "{listPrefix list}".with("list.0" to 0, "list.1" to 1).toString())
-    }
-
-    @Test
-    @Disabled //Not support now
-    fun testTypeAllKeyGet() {
-        PlaceHoldApi.typeBinder<Data>().apply {
-            registerChild("list.1", DynamicVar.obj { it.a })
-            registerChild("list.2", DynamicVar.obj { it.b })
-        }
-        Assertions.assertEquals("8,10", "{listPrefix o.list}".with("o" to Data(8, "10")).toString())
-    }
-
-    @Test
     fun testFunctionVar() {
-        PlaceHoldApi.registerGlobalVar("upperCase", DynamicVar.params {
+        registerGlobalVar("upperCase", DynamicVar.params {
             it.get<String>(0).uppercase()
         })
         Assertions.assertEquals("{ERR: Fail resolve upperCase: Parma 0 required type String}", "{upperCase}".with().toString())
@@ -145,7 +126,7 @@ class Test {
 
     @Test
     fun testLocalOverlay() {
-        PlaceHoldApi.registerGlobalVar("v", "global")
+        registerGlobalVar("v", "global")
         Assertions.assertEquals("local", "{v}".with("v" to "local").toString())
     }
 
@@ -158,7 +139,7 @@ class Test {
         Assertions.assertEquals("ba", "{a}{sub}".with("sub" to sub2, "a" to "b").toString())
     }
 
-    interface CustomBuilderMessage {}
+    interface CustomBuilderMessage
 
     @Test
     fun testCustomBuilder() {
@@ -188,5 +169,27 @@ class Test {
         Assertions.assertTrue(resolved[0] is Text)
         Assertions.assertTrue(resolved[1] is Image)
         Assertions.assertTrue(resolved[2] is Text)
+    }
+
+    @Test
+    fun testStdVariable() {
+        Assertions.assertEquals("0,1,2", "{list|join}".with("list" to listOf(0, 1, 2)).toString())
+        Assertions.assertEquals("<0>|<1>|<2>", """{join list "|" "<{it}>"}""".with("list" to listOf(0, 1, 2)).toString())
+
+        registerGlobalVar("list.2", 2)
+        registerGlobalVar("list.3", DynamicVar.v { "DD" })
+        registerGlobalVar("list.null", DynamicVar.v { null })
+        Assertions.assertEquals("0,1,2,DD", "{listPrefix list}".with("list.0" to 0, "list.1" to 1).toString())
+
+
+        //Not support now
+//        PlaceHoldApi.typeBinder<Data>().apply {
+//            registerChild("list.1", DynamicVar.obj { it.a })
+//            registerChild("list.2", DynamicVar.obj { it.b })
+//        }
+//        Assertions.assertEquals("8,10", "{listPrefix o.list}".with("o" to Data(8, "10")).toString())
+
+        Assertions.assertEquals("NO", """{v|or "NO"}""".with().toString())
+        Assertions.assertEquals("YES", """{v|or "NO"}""".with("v" to "YES").toString())
     }
 }

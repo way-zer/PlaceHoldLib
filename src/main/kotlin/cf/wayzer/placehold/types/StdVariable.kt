@@ -12,7 +12,7 @@ object StdVariable {
             val separator = params.getOrNull<VarString>(1)?.text ?: ","
             val template = params.getOrNull<VarString>(2)
             list.asSequence().mapNotNull {
-                val v = it?.unwrap()?:return@mapNotNull null
+                val v = it?.unwrap() ?: return@mapNotNull null
                 template?.createChild(vars = mapOf("it" to v)) ?: resolveVarForString(v)
             }.joinToString(separator)
         })
@@ -28,6 +28,11 @@ object StdVariable {
             }
             allVars.map { VarToken(it) }
         })
-        //TODO or
+        PlaceHoldApi.registerGlobalVar("or", DynamicVar.params {
+            val target = it.get<VarString.VarToken>(0)
+            val fallback = it.get<String>(1)
+            val obj = target.get() ?: return@params fallback
+            target.getForString(obj)
+        })
     }
 }
