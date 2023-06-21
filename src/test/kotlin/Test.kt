@@ -1,7 +1,5 @@
-import cf.wayzer.placehold.DynamicVar
-import cf.wayzer.placehold.PlaceHoldApi
+import cf.wayzer.placehold.*
 import cf.wayzer.placehold.PlaceHoldApi.with
-import cf.wayzer.placehold.VarString
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeEach
@@ -44,17 +42,25 @@ class Test {
 
     @Test
     fun testList() {
-        PlaceHoldApi//ensure init
-        val list = listOf(1, 2, 3, 4, 5)
-        Assertions.assertEquals("1,2,3,4,5", "{list}".with("list" to list).toString())
+        val list = listOf(0, 1, 2, 3, 4, 5)
+        Assertions.assertEquals("0,1,2,3,4,5", "{list}".with("list" to list).toString())
+        Assertions.assertEquals("0", "{list.first}".with("list" to list).toString())
+        Assertions.assertEquals("3", "{list.3}".with("list" to list).toString())
+        Assertions.assertEquals("5", "{list.last}".with("list" to list).toString())
+        Assertions.assertEquals("0,1,2,3,4,5", "{list|join}".with("list" to list).toString())
     }
 
 
-    data class Data(val a: Int, val b: String)
+    data class Data(val a: Int, val b: String) : VarContainer {
+        override fun resolve(ctx: VarString, child: String): Any? {
+            if (child == "testVarContainer") return "YES"
+            return null
+        }
+    }
 
     @Test
     fun badPath() {
-        Assertions.assertEquals("{ERR: not found o.d} {ERR: not found o.f}", "{o.d} {o.f}".with("o" to Data(22, "ab")).toString())
+        Assertions.assertEquals("{ERR: not found o.d} YES", "{o.d} {o.testVarContainer}".with("o" to Data(22, "ab")).toString())
     }
 
     @Test
@@ -66,6 +72,11 @@ class Test {
         }
         Assertions.assertEquals("22 ab", "{o.a} {o.b}".with("o" to Data(22, "ab")).toString())
         Assertions.assertEquals("{ERR: not found o.} Data(a=22, b=ab)", "{o.} {o}".with("o" to Data(22, "ab")).toString())
+        //移除绑定
+        PlaceHoldApi.typeBinder<Data>().apply {
+            registerChildAny("a", null)
+        }
+        Assertions.assertEquals("{ERR: not found o.a} ab", "{o.a} {o.b}".with("o" to Data(22, "ab")).toString())
     }
 
     @Test
@@ -77,6 +88,14 @@ class Test {
     @Test
     fun testGlobalContext() {
         Assertions.assertEquals("01-01", PlaceHoldApi.GlobalContext.resolveVarForString(Date(0)))
+    }
+
+    @Test
+    fun testTemplateHandler() {
+        Assertions.assertEquals("b", "a".with(TemplateHandlerKey to TemplateHandler {
+            Assertions.assertEquals("a", it)
+            "b"
+        }).toString())
     }
 
     @Test

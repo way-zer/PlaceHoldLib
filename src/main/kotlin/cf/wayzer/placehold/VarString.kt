@@ -1,6 +1,5 @@
 package cf.wayzer.placehold
 
-import cf.wayzer.placehold.utils.StringOr
 import java.util.*
 import kotlin.IllegalArgumentException
 
@@ -116,10 +115,11 @@ data class VarString(
 
     /** 解析a->b过程,返回值未unwrap*/
     fun resolveVarChild(obj: Any, child: String): Any? {
-        if (obj is VarContainer<*>) {
-            @Suppress("UNCHECKED_CAST")
-            return (obj as VarContainer<Any>).resolve(this, obj, child)
-        }
+        //对象自己也实现了VarContainer扩展
+        if (obj is VarContainer)
+            obj.resolve(this, child)?.let { return it }
+
+        //通过bindTypes解析
         var cls: Class<out Any>? = obj::class.java
         while (cls != null) {
             bindTypes[cls]?.resolve(this, obj, child)?.let { return it }
@@ -128,6 +128,7 @@ data class VarString(
             }
             cls = cls.superclass
         }
+        //ToString特殊实现
         if (child == ToString) return obj.toString()
         return null
     }
@@ -157,12 +158,11 @@ data class VarString(
         return v
     }
 
-    fun parsed(): List<StringOr<VarToken>> {
+    fun parsed(): List<Any/*String|VarToken*/> {
         val template = resolveVar(listOf(TemplateHandlerKey))
-            .let { (it as? TemplateHandler)?.handle(this, text) ?: text }
+            .let { (it as? TemplateHandler)?.run { handle(text) } ?: text }
         return TokenParser.parse(template).map {
-            if (it.isString) StringOr(it.asString)
-            else StringOr(it.asT.toVarToken())
+            if (it is String) it else (it as TokenParser.Expr).toVarToken()
         }
     }
 
@@ -177,7 +177,7 @@ data class VarString(
     override fun toString(): String {
         val parsed = parsed()
         if (parsed.size == 1) return parsed[0].toString()
-        return parsed.joinToString("") { if (it.isString) it.asString else it.asT.getForString() }
+        return parsed.joinToString("") { if (it is String) it else (it as VarToken).getForString() }
     }
 
     companion object {

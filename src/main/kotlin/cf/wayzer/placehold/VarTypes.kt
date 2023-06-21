@@ -21,11 +21,7 @@ const val TemplateHandlerKey = "_TemplateHandler"
  * register use [TemplateHandlerKey]
  */
 fun interface TemplateHandler {
-    fun handle(ctx: VarString, text: String): String
-
-    companion object {
-        fun new(body: VarString.(text: String) -> String) = TemplateHandler { ctx, it -> ctx.body(it) }
-    }
+    fun VarString.handle(text: String): String
 }
 
 fun interface DynamicVar<T : Any, G : Any> : VarType {
@@ -47,12 +43,12 @@ fun interface DynamicVar<T : Any, G : Any> : VarType {
     }
 }
 
-interface VarContainer<T : Any> : VarType {
-    fun resolve(ctx: VarString, obj: T, child: String): Any?
+interface VarContainer : VarType {
+    fun resolve(ctx: VarString, child: String): Any?
 }
 
 @Suppress("unused", "MemberVisibilityCanBePrivate")
-open class TypeBinder<T : Any> : VarContainer<T> {
+open class TypeBinder<T : Any> {
     private val tree = mutableMapOf<String, Any>()
 
     /**
@@ -79,7 +75,7 @@ open class TypeBinder<T : Any> : VarContainer<T> {
             tree[key] = body
     }
 
-    override fun resolve(ctx: VarString, obj: T, child: String): Any? {
+    open fun resolve(ctx: VarString, obj: T, child: String): Any? {
         return tree[child]
     }
 }

@@ -1,6 +1,5 @@
 package cf.wayzer.placehold
 
-import cf.wayzer.placehold.utils.StringOr
 import org.jetbrains.annotations.TestOnly
 
 object TokenParser {
@@ -70,9 +69,9 @@ object TokenParser {
     fun readTokensTest(text: String, tokens: MutableList<Any>): Int =
         text.readTokens(0, tokens)
 
-    /** @return List<String|VarToken> */
-    fun parse(text: String): List<StringOr<Expr>> {
-        if (!text.contains('{')) return listOf(StringOr(text))//fast path
+    /** @return List<String|Expr> */
+    fun parse(text: String): List<Any/*String|Expr*/> {
+        if (!text.contains('{')) return listOf(text)//fast path
 
         return buildList {
             var parsed = 0 //已经处理过的字符
@@ -81,7 +80,7 @@ object TokenParser {
                 val begin = text.indexOf('{', parsed)
                 if (begin == -1) {
                     textBuilder.append(text, parsed, text.length)
-                    add(StringOr(textBuilder.toString()))
+                    add(textBuilder.toString())
                     break
                 }
 
@@ -96,7 +95,7 @@ object TokenParser {
                 }
 
                 if (textBuilder.isNotEmpty()) {
-                    add(StringOr(textBuilder.toString()))
+                    add(textBuilder.toString())
                     textBuilder.clear()
                 }
 
@@ -106,7 +105,7 @@ object TokenParser {
                 require(text.getOrNull(parsed) == '}') { "no end for '}'.(parsed $parsed)" }
                 parsed++
                 //resolve
-                add(StringOr(Expr(tokens)))
+                add(Expr(tokens))
             }
         }
     }

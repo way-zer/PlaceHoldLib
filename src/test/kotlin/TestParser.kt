@@ -29,8 +29,8 @@ class TestParser {
         val sample = """> }{{ < start {a   b "c \" d" e | f } end"""
         val parsed = TokenParser.parse(sample)
         Assertions.assertEquals(3, parsed.size)
-        Assertions.assertEquals("> }{ < start ", parsed[0].asString)
-        Assertions.assertEquals(" end", parsed[2].asString)
+        Assertions.assertEquals("> }{ < start ", parsed[0])
+        Assertions.assertEquals(" end", parsed[2])
     }
 
     @Test()
