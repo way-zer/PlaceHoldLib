@@ -1,5 +1,5 @@
 plugins {
-    id 'org.jetbrains.kotlin.jvm' version '1.7.20'
+    id 'org.jetbrains.kotlin.jvm' version '1.8.20'
     id "me.qoomon.git-versioning" version "2.1.1"
     id 'org.jetbrains.dokka' version '1.7.20'
 }
@@ -33,6 +33,10 @@ compileKotlin {
 }
 compileTestKotlin {
     kotlinOptions.jvmTarget = "1.8"
+}
+
+kotlin{
+    jvmToolchain(8)
 }
 
 tasks.test {

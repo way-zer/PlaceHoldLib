@@ -1,18 +1,12 @@
 package cf.wayzer.placehold.types
 
-import cf.wayzer.placehold.DynamicVar
-import cf.wayzer.placehold.PlaceHoldContext
+import cf.wayzer.placehold.VarString
 import cf.wayzer.placehold.TypeBinder
-import cf.wayzer.placehold.util.VarTree
 
 class ListTypeBinder : TypeBinder<List<*>>() {
-    override fun resolve(ctx: PlaceHoldContext, obj: List<*>, child: String): Any? {
+    override fun resolve(ctx: VarString, obj: List<*>, child: String): Any? {
         return when (child) {
-            "toString" -> DynamicVar.params { params ->
-                val objRaw = (obj as? VarTree.ListWithContext<*>)?.obj ?: obj
-                obj.mapNotNull { it?.let { ctx.resolveVar(it, obj=objRaw)?.toString() } }
-                    .joinToString(params ?: ",")
-            }
+            "toString" -> ctx.VarToken("join", VarString.Parameters(listOf(obj))).getForString()
             "first" -> obj.firstOrNull()
             "last" -> obj.lastOrNull()
             else -> {

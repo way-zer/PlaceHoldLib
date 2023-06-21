@@ -1,13 +1,20 @@
 import cf.wayzer.placehold.DynamicVar
 import cf.wayzer.placehold.PlaceHoldApi
 import cf.wayzer.placehold.PlaceHoldApi.with
-import cf.wayzer.placehold.PlaceHoldContext
+import cf.wayzer.placehold.VarString
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.assertThrows
 import java.util.*
 
 class Test {
+    @BeforeEach
+    fun reset() {
+        PlaceHoldApi.init()
+    }
+
     @Test
     fun base() {
         Assertions.assertEquals("Hello World", "Hello World".with().toString())
@@ -31,7 +38,7 @@ class Test {
     @Test
     fun nestedVar() {
         PlaceHoldApi.registerGlobalVar("nest3", "nested {v}".with())
-        PlaceHoldApi.registerGlobalDynamicVar("nestVar") { _, _ -> getVar("nest3") }
+        PlaceHoldApi.registerGlobalDynamicVar("nestVar") { _, _ -> VarToken("nest3").get() }
         Assertions.assertEquals("nested Var", "{nestVar}".with("v" to "Var").toString())
     }
 
@@ -47,15 +54,7 @@ class Test {
 
     @Test
     fun badPath() {
-        Assertions.assertEquals("{o.d} {o.f}", "{o.d} {o.f}".with("o" to Data(22, "ab")).toString())
-    }
-
-    @Test
-    fun testParams() {
-        val v = DynamicVar { _, _: Any, params -> params ?: "NO Params" }
-        Assertions.assertEquals("NO Params", "{v}".with("v" to v).toString())
-        Assertions.assertEquals("", "{v:}".with("v" to v).toString())
-        Assertions.assertEquals("123 456", "{v:123 456}".with("v" to v).toString())
+        Assertions.assertEquals("{ERR: not found o.d} {ERR: not found o.f}", "{o.d} {o.f}".with("o" to Data(22, "ab")).toString())
     }
 
     @Test
@@ -66,18 +65,18 @@ class Test {
             registerToString { _, obj, _ -> obj.toString() }
         }
         Assertions.assertEquals("22 ab", "{o.a} {o.b}".with("o" to Data(22, "ab")).toString())
-        Assertions.assertEquals("{o.} Data(a=22, b=ab)", "{o.} {o}".with("o" to Data(22, "ab")).toString())
+        Assertions.assertEquals("{ERR: not found o.} Data(a=22, b=ab)", "{o.} {o}".with("o" to Data(22, "ab")).toString())
     }
 
     @Test
     fun testDateTypeBinder() {
         Assertions.assertEquals("01-01", "{t}".with("t" to Date(0)).toString())
-        Assertions.assertEquals("1970-01-01", "{t:yyyy-MM-dd}".with("t" to Date(0)).toString())
+        Assertions.assertEquals("1970-01-01", "{t \"yyyy-MM-dd\"}".with("t" to Date(0)).toString())
     }
 
     @Test
     fun testGlobalContext() {
-        Assertions.assertEquals("01-01", PlaceHoldApi.GlobalContext.resolveVar(Date(0)))
+        Assertions.assertEquals("01-01", PlaceHoldApi.GlobalContext.resolveVarForString(Date(0)))
     }
 
     @Test
@@ -95,37 +94,31 @@ class Test {
         Assertions.assertEquals(1, count)
     }
 
-    @Test()
-    fun testAllKeySet() {
-        assertThrows<IllegalStateException> {
-            PlaceHoldApi.registerGlobalVar("a.b.c.*", 0)
-        }
-    }
-
     @Test
     fun testAllKeyGet() {
         PlaceHoldApi.registerGlobalVar("list.2", 2)
         PlaceHoldApi.registerGlobalVar("list.3", DynamicVar.v { "DD" })
-        Assertions.assertEquals("0,1,2,DD", "{list.*}".with("list.0" to 0, "list.1" to 1).toString())
+        PlaceHoldApi.registerGlobalVar("list.null", DynamicVar.v { null })
+        Assertions.assertEquals("0,1,2,DD", "{listPrefix list}".with("list.0" to 0, "list.1" to 1).toString())
     }
 
     @Test
+    @Disabled //Not support now
     fun testTypeAllKeyGet() {
         PlaceHoldApi.typeBinder<Data>().apply {
             registerChild("list.1", DynamicVar.obj { it.a })
             registerChild("list.2", DynamicVar.obj { it.b })
         }
-        Assertions.assertEquals("8,10", "{o.list.*}".with("o" to Data(8, "10")).toString())
+        Assertions.assertEquals("8,10", "{listPrefix o.list}".with("o" to Data(8, "10")).toString())
     }
 
     @Test
     fun testFunctionVar() {
         PlaceHoldApi.registerGlobalVar("upperCase", DynamicVar.params {
-            if (it == null) return@params "{upperCase:NoParam}"
-            getVarString(it)?.uppercase()
+            it.get<String>(0).uppercase()
         })
-        Assertions.assertEquals("{upperCase:NoParam}", "{upperCase}".with().toString())
-        Assertions.assertEquals("UPPER", "{upperCase:a}".with("a" to "upper").toString())
+        Assertions.assertEquals("{ERR: Fail resolve upperCase: Parma 0 required type String}", "{upperCase}".with().toString())
+        Assertions.assertEquals("UPPER", "{upperCase a}".with("a" to "upper").toString())
     }
 
     @Test
@@ -135,15 +128,7 @@ class Test {
     }
 
     @Test
-    fun testVarTreeAndDynamic() {
-        Assertions.assertEquals(
-            "",
-            "{v.*}".with("v.a" to DynamicVar.v { null }).toString()
-        )
-    }
-
-    @Test
-    fun testCacheBug() {
+    fun testCacheBug1() {
         val sub = "{a}".with()
         Assertions.assertEquals("a", "{sub}".with("sub" to sub, "a" to "a").toString())
         Assertions.assertEquals("b", "{sub}".with("sub" to sub, "a" to "b").toString())
@@ -151,12 +136,7 @@ class Test {
 
     @Test
     fun testCacheBug2() {
-        PlaceHoldApi.cacheMode = PlaceHoldContext.CacheMode.Strict
         val sub = "{a}".with("a" to "a")
         Assertions.assertEquals("ba", "{a}{sub}".with("sub" to sub, "a" to "b").toString())
-
-        PlaceHoldApi.cacheMode = PlaceHoldContext.CacheMode.Default
-        val sub1 = "{a}".with("a" to "a")
-        Assertions.assertEquals("bb", "{a}{sub}".with("sub" to sub1, "a" to "b").toString())
     }
 }

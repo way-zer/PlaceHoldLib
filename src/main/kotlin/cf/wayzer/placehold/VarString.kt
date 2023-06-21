@@ -1,0 +1,189 @@
+package cf.wayzer.placehold
+
+import cf.wayzer.placehold.utils.StringOr
+import java.util.*
+import kotlin.IllegalArgumentException
+
+/**
+ * 新变量解析流程设计
+ * 1. 尝试根据2在当前Context解析，不存在则在parent解析
+ * 2. 优先根据最大前缀，依次查找，unwrap后作为obj，尝试解析子变量`a->b`，直到终端节点。存入缓存
+ * 3. 对终端节点传递params求解。若有管道，保存成临时变量，作为第一参数，解析管道
+ * 4. 如果forString,对最终结果使用toString求解，空params
+ */
+
+@Suppress("MemberVisibilityCanBePrivate", "unused")
+data class VarString(
+    val text: String,
+    val vars: Map<String, Any?>,
+    private val parent: VarString? = null,
+    val cache: MutableMap<List<String>, Any>? = mutableMapOf()
+) : VarType {
+    fun parent() = parent ?: globalContext.takeIf { it != this }
+
+    @JvmInline
+    value class Parameters(val params: List<Any>) {
+        constructor(vararg params: Any) : this(params.toList())
+
+        @Throws(IllegalArgumentException::class)
+        inline fun <reified T : Any> getOrNull(i: Int, default: T? = null): T? {
+            var arg = params.getOrNull(i) ?: default
+            if ((arg is VarString || arg is VarToken) && T::class.java == String::class.java)
+                arg = if (arg is VarToken) arg.getForString() else arg.toString()
+            if (arg is VarToken && T::class.java != VarToken::class.java) arg = arg.get()
+            require(arg is T?) { "Parma $i required type ${T::class.java.simpleName}, get $arg" }
+            return arg
+        }
+
+        @Throws(IllegalArgumentException::class)
+        inline fun <reified T : Any> get(i: Int, default: T? = null): T {
+            return getOrNull<T>(i, default)
+                ?: throw IllegalArgumentException("Parma $i required type ${T::class.java.simpleName}")
+        }
+
+        companion object {
+            val Empty = Parameters(emptyList())
+        }
+    }
+
+    inner class VarToken(var name: String, val params: Parameters = Parameters.Empty) : DynamicVar<Any, Any> {
+        fun get(): Any? {
+            return try {
+                resolveVarUnwrapped(name, params)
+            } catch (e: IllegalArgumentException) {
+                throw IllegalArgumentException("Fail resolve $name: ${e.message}")
+            }
+        }
+
+        fun getForString(): String {
+            return try {
+                val obj = get() ?: "{ERR: not found $name}"
+                return resolveVarForString(obj, params) ?: "{ERR($name): resolve null}"
+            } catch (e: IllegalArgumentException) {
+                "{ERR: ${e.message}}"
+            }
+        }
+
+        override fun handle(ctx: VarString, obj: Any, params: Parameters): Any? = get()
+        override fun toString(): String {
+            return "VarToken(name='$name', params=$params)"
+        }
+    }
+
+    /**
+     * will add [vars] to child as fallback
+     */
+    fun createChild(newText: String = text, vars: Map<String, Any?> = emptyMap()): VarString =
+        copy(text = newText, vars = vars, parent = this)
+
+    /** 解析a.b.c变量,末端未unwrap */
+    fun resolveVar(keys: List<String>): Any? {
+        cache?.get(keys)?.let { return it }
+        loop@
+        for (sp in keys.size downTo 1) {
+            val key = keys.subList(0, sp)
+            val keyStr = key.joinToString(".")
+            var v: Any = cache?.get(key) ?: vars[keyStr]
+            ?: if (keyStr in vars) return null else continue //overwrite null in vars in sub scoop, so we return
+            if (sp < keys.size) {
+                v = v.unwrap(key) ?: continue
+                cache?.put(key, v)
+                for (resolved in sp until keys.size) {
+                    val obj = v
+                    v = resolveVarChild(v, keys[resolved]) ?: continue@loop
+                    v = v.unwrap(obj) ?: continue@loop
+                    cache?.put(keys.subList(0, resolved + 1), v)
+                }
+            }
+            //success
+            cache?.put(keys, v)
+            return v
+        }
+        return parent()?.resolveVar(keys)
+    }
+
+    fun resolveVarUnwrapped(keys: String, params: Parameters = Parameters.Empty): Any? {
+        val key = keys.split('.')
+        return resolveVar(key)?.unwrap(key, params = params)
+    }
+
+    fun resolveVarForString(v: Any, params: Parameters = Parameters.Empty): String? {
+        val obj = v.unwrap(params = params) ?: return null
+        if (obj is String) return obj
+        if (obj is VarString) return (if (obj.parent != this) obj.copy(parent = this) else obj).toString()
+        return resolveVarChild(obj, ToString)?.unwrap(obj, params)?.toString()
+    }
+
+    /** 解析a->b过程,返回值未unwrap*/
+    fun resolveVarChild(obj: Any, child: String): Any? {
+        if (obj is VarContainer<*>) {
+            @Suppress("UNCHECKED_CAST")
+            return (obj as VarContainer<Any>).resolve(this, obj, child)
+        }
+        var cls: Class<out Any>? = obj::class.java
+        while (cls != null) {
+            bindTypes[cls]?.resolve(this, obj, child)?.let { return it }
+            cls.interfaces.forEach { int ->
+                bindTypes[int]?.resolve(this, obj, child)?.let { return it }
+            }
+            cls = cls.superclass
+        }
+        if (child == ToString) return obj.toString()
+        return null
+    }
+
+    private fun TokenParser.Expr.toVarToken(): VarToken {
+        var params = mutableListOf<Any>()
+        var v: VarToken? = null
+        for (p in tokens) {
+            if (v == null) {
+                check(p is TokenParser.Var) { "expect Token.Var, get $p" }
+                //The first token is v, And the params is mutable, add after that.
+                v = VarToken(p.name, Parameters(params))
+                continue
+            }
+            when (p) {
+                is TokenParser.Var -> params.add(VarToken(p.name))
+                TokenParser.PipeToken -> {
+                    params = mutableListOf(v)
+                    v = null
+                }
+
+                is String -> params.add(createChild(p))
+                else -> error("unexpect token: $p")
+            }
+        }
+        require(v != null) { "Empty Expression or invalid pipe" }
+        return v
+    }
+
+    fun parsed(): List<StringOr<VarToken>> {
+        val template = resolveVar(listOf(TemplateHandlerKey))
+            .let { (it as? TemplateHandler)?.handle(this, text) ?: text }
+        return TokenParser.parse(template).map {
+            if (it.isString) StringOr(it.asString)
+            else StringOr(it.asT.toVarToken())
+        }
+    }
+
+    @Throws(IllegalArgumentException::class)
+    tailrec fun Any.unwrap(obj: Any = this, params: Parameters = Parameters.Empty): Any? {
+        if (this !is DynamicVar<*, *>) return this
+        @Suppress("UNCHECKED_CAST")
+        return (this as DynamicVar<Any, Any>).handle(this@VarString, obj, params)
+            ?.unwrap(obj, params)
+    }
+
+    override fun toString(): String {
+        val parsed = parsed()
+        if (parsed.size == 1) return parsed[0].toString()
+        return parsed.joinToString("") { if (it.isString) it.asString else it.asT.getForString() }
+    }
+
+    companion object {
+        const val ToString = "toString"
+        internal val globalVars = TreeMap<String, Any>()
+        internal val bindTypes = mutableMapOf<Class<out Any>, TypeBinder<Any>>()
+        internal val globalContext = VarString("Global_Context", globalVars, null, cache = null)
+    }
+}
