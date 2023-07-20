@@ -25,11 +25,25 @@ data class VarString(
 
         @Throws(IllegalArgumentException::class)
         inline fun <reified T : Any> getOrNull(i: Int, default: T? = null): T? {
-            var arg = params.getOrNull(i) ?: default
-            if ((arg is VarString || arg is VarToken) && T::class.java == String::class.java)
-                arg = if (arg is VarToken) arg.getForString() else arg.toString()
-            if (arg is VarToken && T::class.java != VarToken::class.java) arg = arg.get()
-            require(arg is T?) { "Parma $i required type ${T::class.java.simpleName}, get $arg" }
+            var arg = params.getOrNull(i) ?: return default
+            //Try to convert Var to String
+            if (arg is VarString && T::class.java == String::class.java)
+                arg = arg.toString()
+            //Try to convert VarToken to basic type
+            if (arg is VarToken) {
+                arg = when (T::class.java) {
+                    String::class.java -> arg.getForString()
+                    Int::class.java -> arg.name.toIntOrNull() ?: arg
+                    Boolean::class.java -> arg.name.toBooleanStrictOrNull() ?: arg
+                    Float::class.java -> arg.name.toFloatOrNull() ?: arg
+                    Double::class.java -> arg.name.toDoubleOrNull() ?: arg
+                    else -> arg
+                }
+            }
+            //resolve VarToken
+            if (arg is VarToken && T::class.java != VarToken::class.java)
+                arg = arg.get() ?: return default
+            require(arg is T) { "Parma $i required type ${T::class.java.simpleName}, get $arg" }
             return arg
         }
 

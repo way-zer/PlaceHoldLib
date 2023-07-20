@@ -11,7 +11,7 @@ object StdVariable {
     fun register() {
         PlaceHoldApi.registerGlobalVar("join", DynamicVar { params ->
             val list = params.get<Iterable<*>>(0)
-            val separator = params.get<String>(1,",")
+            val separator = params.get<String>(1, ",")
             val template = params.getOrNull<VarString>(2)
             list.asSequence().mapNotNull {
                 val v = it?.unwrap() ?: return@mapNotNull null
@@ -30,11 +30,17 @@ object StdVariable {
             }
             allVars.map { VarToken(it) }
         })
-        PlaceHoldApi.registerGlobalVar("or", DynamicVar {
+        PlaceHoldApi.registerGlobalVar("if", DynamicVar {
+            val condition = it.get<Boolean>(0, false)
+            if (condition) it.get<Any>(1) else null
+        })
+        PlaceHoldApi.registerGlobalVar("else", DynamicVar {
             val target = it.get<VarString.VarToken>(0)
-            val fallback = it.get<String>(1)
-            val obj = target.get() ?: return@DynamicVar fallback
-            target.getForString(obj)
+            target.get()?.let(target::getForString) ?: it.get<Any>(1)
+        })
+        PlaceHoldApi.registerGlobalVar("orEmpty", DynamicVar {
+            val target = it.get<VarString.VarToken>(0)
+            target.get()?.let(target::getForString) ?: ""
         })
         PlaceHoldApi.registerGlobalVar("date", DynamicVar {
             val date = it.get<Any>(0)

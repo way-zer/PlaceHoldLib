@@ -167,8 +167,9 @@ class Test {
 //        Assertions.assertEquals("8,10", "{listPrefix o.list}".with("o" to Data(8, "10")).toString())
 
         //or
-        Assertions.assertEquals("NO", """{v|or "NO"}""".with().toString())
-        Assertions.assertEquals("YES", """{v|or "NO"}""".with("v" to "YES").toString())
+        Assertions.assertEquals("{ERR: not found if}", """{if v "YES"}""".with().toString())
+        Assertions.assertEquals("NO", """{if v "YES"|else "NO"}""".with().toString())
+        Assertions.assertEquals("YES", """{v|else "NO"}""".with("v" to "YES").toString())
 
         //date
         Assertions.assertEquals("01-01", "{t | date}".with("t" to Date(0)).toString())

@@ -39,9 +39,19 @@ object TokenParser {
                             tokens.add(builder.toString())
                             return readTokens(end, tokens)
                         }
-
-                        '\\' -> if (this[end] == '"') {
-                            builder.append('"')
+                        //转义字符
+                        '\\' -> {
+                            builder.append(
+                                when (val next = this[end]) {
+                                    'n' -> '\n'
+                                    't' -> '\t'
+                                    '\\', '"' -> next
+                                    else -> {
+                                        end -= 1
+                                        '\\'
+                                    }
+                                }
+                            )
                             end += 1
                             continue
                         }
@@ -70,7 +80,9 @@ object TokenParser {
         text.readTokens(0, tokens)
 
     /** @return List<String|Expr> */
-    fun parse(text: String): List<Any/**[String]|[Expr]*/> {
+    fun parse(text: String): List<Any
+            /**[String]|[Expr]*/
+            > {
         if (!text.contains('{')) return listOf(text)//fast path
 
         return buildList {
