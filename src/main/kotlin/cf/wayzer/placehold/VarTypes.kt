@@ -11,36 +11,12 @@ package cf.wayzer.placehold
  */
 sealed interface VarType
 
-/**
- * @see TemplateHandler
- */
-const val TemplateHandlerKey = "_TemplateHandler"
-
-/**
- * A Handler for template before parse
- * register use [TemplateHandlerKey]
- */
-fun interface TemplateHandler {
-    fun VarString.handle(text: String): String
-}
-
-fun interface DynamicVar<T : Any, G : Any> : VarType {
+fun interface DynamicVar : VarType {
     /**
-     * @param obj bindType obj(T) or varName(List<String>, may be empty)
      * @param params may null when no params provided
      */
     @Throws(IllegalArgumentException::class)
-    fun handle(ctx: VarString, obj: T, params: VarString.Parameters): G?
-
-    companion object {
-        inline fun <T : Any, G : Any> obj(crossinline body: VarString.(obj: T) -> G?) =
-            DynamicVar { ctx, obj: T, _ -> ctx.body(obj) }
-
-        inline fun <G : Any> params(crossinline body: VarString.(params: VarString.Parameters) -> G?) =
-            DynamicVar { ctx, _: Any, params -> ctx.body(params) }
-
-        inline fun <G : Any> v(crossinline body: VarString.() -> G?) = DynamicVar { ctx, _: Any, _ -> ctx.body() }
-    }
+    fun VarString.resolve(params: VarString.Parameters): Any?
 }
 
 interface VarContainer : VarType {
@@ -49,19 +25,23 @@ interface VarContainer : VarType {
 
 @Suppress("unused", "MemberVisibilityCanBePrivate")
 open class TypeBinder<T : Any> {
+    fun interface ObjChild<T : Any> {
+        fun VarString.resolve(obj: T): Any?
+    }
+
     private val tree = mutableMapOf<String, Any>()
 
     /**
      * Bind handler for object to string
      */
-    fun registerToString(body: DynamicVar<T, String>?) {
+    fun registerToString(body: ObjChild<T>?) {
         registerChildAny("toString", body)
     }
 
     /**
      * register child vars,can be nested
      */
-    fun registerChild(key: String, body: DynamicVar<T, out Any>) {
+    fun registerChild(key: String, body: ObjChild<T>) {
         registerChildAny(key, body)
     }
 
@@ -76,6 +56,10 @@ open class TypeBinder<T : Any> {
     }
 
     open fun resolve(ctx: VarString, obj: T, child: String): Any? {
-        return tree[child]
+        val value = tree[child] ?: return null
+        @Suppress("UNCHECKED_CAST")
+        if (value is ObjChild<*>)
+            return (value as ObjChild<T>).run { ctx.resolve(obj) }
+        return value
     }
 }

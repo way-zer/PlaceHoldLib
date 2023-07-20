@@ -44,7 +44,7 @@ data class VarString(
         }
     }
 
-    inner class VarToken(var name: String, val params: Parameters = Parameters.Empty) : DynamicVar<Any, Any> {
+    inner class VarToken(var name: String, val params: Parameters = Parameters.Empty) : DynamicVar {
         fun get(): Any? {
             return try {
                 resolveVarUnwrapped(name, params)
@@ -62,7 +62,7 @@ data class VarString(
             }
         }
 
-        override fun handle(ctx: VarString, obj: Any, params: Parameters): Any? = get()
+        override fun VarString.resolve(params: Parameters): Any? = get()
         override fun toString(): String {
             return "VarToken(name='$name', params=$params)"
         }
@@ -81,16 +81,12 @@ data class VarString(
         for (sp in keys.size downTo 1) {
             val key = keys.subList(0, sp)
             val keyStr = key.joinToString(".")
-            var v: Any = cache?.get(key) ?: vars[keyStr]
-            ?: if (keyStr in vars) return null else continue //overwrite null in vars in sub scoop, so we return
+            var v: Any = cache?.get(key) ?: vars[keyStr] ?: if (keyStr in vars) return null else continue //overwrite null in vars in sub scoop, so we return
             if (sp < keys.size) {
-                v = v.unwrap(key) ?: continue
-                cache?.put(key, v)
                 for (resolved in sp until keys.size) {
-                    val obj = v
+                    v = v.unwrap() ?: continue@loop
+                    cache?.put(keys.subList(0, resolved), v)
                     v = resolveVarChild(v, keys[resolved]) ?: continue@loop
-                    v = v.unwrap(obj) ?: continue@loop
-                    cache?.put(keys.subList(0, resolved + 1), v)
                 }
             }
             //success
@@ -102,14 +98,14 @@ data class VarString(
 
     fun resolveVarUnwrapped(keys: String, params: Parameters = Parameters.Empty): Any? {
         val key = keys.split('.')
-        return resolveVar(key)?.unwrap(key, params = params)
+        return resolveVar(key)?.unwrap(params = params)
     }
 
     fun resolveVarForString(v: Any, params: Parameters = Parameters.Empty): String? {
         val obj = v.unwrap(params = params) ?: return null
         if (obj is String) return obj
         if (obj is VarString) return (if (obj.parent != this) obj.copy(parent = this) else obj).toString()
-        return resolveVarChild(obj, ToString)?.unwrap(obj, params)?.toString()
+        return resolveVarChild(obj, ToString)?.unwrap(params)?.toString()
     }
 
     /** 解析a->b过程,返回值未unwrap*/
@@ -157,22 +153,16 @@ data class VarString(
         return v
     }
 
-    fun parsed(): List<Any
-            /**[String]|[VarToken]*/
-            > {
-        val template = resolveVar(listOf(TemplateHandlerKey))
-            .let { (it as? TemplateHandler)?.run { handle(text) } ?: text }
-        return TokenParser.parse(template).map {
+    fun parsed(): List<Any /*[String]|[VarToken]*/> {
+        return TokenParser.parse(text).map {
             if (it is String) it else (it as TokenParser.Expr).toVarToken()
         }
     }
 
     @Throws(IllegalArgumentException::class)
-    tailrec fun Any.unwrap(obj: Any = this, params: Parameters = Parameters.Empty): Any? {
-        if (this !is DynamicVar<*, *>) return this
-        @Suppress("UNCHECKED_CAST")
-        return (this as DynamicVar<Any, Any>).handle(this@VarString, obj, params)
-            ?.unwrap(obj, params)
+    tailrec fun Any.unwrap(params: Parameters = Parameters.Empty): Any? {
+        if (this !is DynamicVar) return this
+        return resolve(params)?.unwrap(params)
     }
 
     override fun toString(): String {

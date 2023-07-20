@@ -1,4 +1,5 @@
 import cf.wayzer.placehold.*
+import cf.wayzer.placehold.PlaceHoldApi.registerGlobalDynamicVar
 import cf.wayzer.placehold.PlaceHoldApi.registerGlobalVar
 import cf.wayzer.placehold.PlaceHoldApi.with
 import org.junit.jupiter.api.Test
@@ -19,10 +20,6 @@ class Test {
     @Test
     fun base() {
         Assertions.assertEquals("Hello World", "Hello World".with().toString())
-    }
-
-    @Test
-    fun testVars() {
         Assertions.assertEquals("Hello World", "Hello {v}".with("v" to "World").toString())
     }
 
@@ -39,7 +36,7 @@ class Test {
     @Test
     fun nestedVar() {
         registerGlobalVar("nest3", "nested {v}".with())
-        PlaceHoldApi.registerGlobalDynamicVar("nestVar") { _, _ -> VarToken("nest3").get() }
+        PlaceHoldApi.registerGlobalDynamicVar("nestVar") { VarToken("nest3").get() }
         Assertions.assertEquals("nested Var", "{nestVar}".with("v" to "Var").toString())
     }
 
@@ -68,9 +65,8 @@ class Test {
     @Test
     fun testTypeBind() {
         PlaceHoldApi.typeBinder<Data>().apply {
-            registerChild("a", DynamicVar.obj { it.a })
-            registerChild("b", DynamicVar.obj { it.b })
-            registerToString { _, obj, _ -> obj.toString() }
+            registerChild("a") { it.a }
+            registerChild("b") { it.b }
         }
         Assertions.assertEquals("22 ab", "{o.a} {o.b}".with("o" to Data(22, "ab")).toString())
         Assertions.assertEquals("{ERR: not found o.} Data(a=22, b=ab)", "{o.} {o}".with("o" to Data(22, "ab")).toString())
@@ -82,33 +78,13 @@ class Test {
     }
 
     @Test
-    fun testDateTypeBinder() {
-        Assertions.assertEquals("01-01", "{t}".with("t" to Date(0)).toString())
-        Assertions.assertEquals("1970-01-01", """{t "yyyy-MM-dd"}""".with("t" to Date(0)).toString())
-    }
-
-    @Test
-    fun testGlobalContext() {
-        Assertions.assertEquals("01-01", PlaceHoldApi.GlobalContext.resolveVarForString(Date(0)))
-    }
-
-    @Test
-    fun testTemplateHandler() {
-        Assertions.assertEquals("b", "a".with(TemplateHandlerKey to TemplateHandler {
-            Assertions.assertEquals("a", it)
-            "b"
-        }).toString())
-    }
-
-    @Test
     fun testCache() {
         PlaceHoldApi.typeBinder<Data>().apply {
-            registerChild("a", DynamicVar.obj { it.a })
-            registerChild("b", DynamicVar.obj { it.b })
-            registerToString { _, obj, _ -> obj.toString() }
+            registerChild("a") { it.a }
+            registerChild("b") { it.b }
         }
         var count = 0
-        val a = DynamicVar.v {
+        val a = DynamicVar {
             count++;Data(22, "ab")
         }
         "{o.a} {o.b} {o} {o.a}".with("o" to a).toString()
@@ -117,7 +93,7 @@ class Test {
 
     @Test
     fun testFunctionVar() {
-        registerGlobalVar("upperCase", DynamicVar.params {
+        registerGlobalVar("upperCase", DynamicVar {
             it.get<String>(0).uppercase()
         })
         Assertions.assertEquals("{ERR: Fail resolve upperCase: Parma 0 required type String}", "{upperCase}".with().toString())
@@ -127,7 +103,8 @@ class Test {
     @Test
     fun testLocalOverlay() {
         registerGlobalVar("v", "global")
-        Assertions.assertEquals("local", "{v}".with("v" to "local").toString())
+        registerGlobalVar("v2", "global")
+        Assertions.assertEquals("local{ERR: not found v2}", "{v}{v2}".with("v" to "local", "v2" to null).toString())
     }
 
     @Test
@@ -143,7 +120,7 @@ class Test {
 
     @Test
     fun testCustomBuilder() {
-        registerGlobalVar("image", DynamicVar.v { "{ERR: receiver not support image}" })
+        registerGlobalVar("image", DynamicVar { "{ERR: receiver not support image}" })
         val text = "这是文字{image imageFile}这是文字".with("imageFile" to File("image.png"))
         Assertions.assertEquals("这是文字{ERR: receiver not support image}这是文字", text.toString())
 
@@ -153,7 +130,7 @@ class Test {
 
         val builderCtx = VarString(
             "", mapOf(
-                "image" to DynamicVar.params {
+                "image" to DynamicVar {
                     Image("{OUTPUT IMAGE ${it.get<File>(0)}}")
                 },
             ), cache = null
@@ -173,15 +150,15 @@ class Test {
 
     @Test
     fun testStdVariable() {
+        //join
         Assertions.assertEquals("0,1,2", "{list|join}".with("list" to listOf(0, 1, 2)).toString())
         Assertions.assertEquals("<0>|<1>|<2>", """{join list "|" "<{it}>"}""".with("list" to listOf(0, 1, 2)).toString())
 
+        //listPrefix
         registerGlobalVar("list.2", 2)
-        registerGlobalVar("list.3", DynamicVar.v { "DD" })
-        registerGlobalVar("list.null", DynamicVar.v { null })
+        registerGlobalVar("list.3", DynamicVar { "DD" })
+        registerGlobalVar("list.null", DynamicVar { null })
         Assertions.assertEquals("0,1,2,DD", "{listPrefix list}".with("list.0" to 0, "list.1" to 1).toString())
-
-
         //Not support now
 //        PlaceHoldApi.typeBinder<Data>().apply {
 //            registerChild("list.1", DynamicVar.obj { it.a })
@@ -189,7 +166,21 @@ class Test {
 //        }
 //        Assertions.assertEquals("8,10", "{listPrefix o.list}".with("o" to Data(8, "10")).toString())
 
+        //or
         Assertions.assertEquals("NO", """{v|or "NO"}""".with().toString())
         Assertions.assertEquals("YES", """{v|or "NO"}""".with("v" to "YES").toString())
+
+        //date
+        Assertions.assertEquals("01-01", "{t | date}".with("t" to Date(0)).toString())
+        Assertions.assertEquals("1970-01-01", """{t | date "yyyy-MM-dd"}""".with("t" to Date(0)).toString())
+    }
+
+    @Test
+    fun testLazyUnwrap() {
+        registerGlobalDynamicVar("C", DynamicVar {
+            Assertions.assertNotEquals(VarString.globalContext, this)
+            VarToken("local").get()
+        })
+        Assertions.assertEquals("LOCAL", "{C}".with("local" to "LOCAL").toString())
     }
 }

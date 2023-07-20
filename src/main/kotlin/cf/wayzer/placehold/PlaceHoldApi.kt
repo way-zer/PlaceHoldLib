@@ -1,9 +1,7 @@
 package cf.wayzer.placehold
 
-import cf.wayzer.placehold.types.DateResolver
 import cf.wayzer.placehold.types.ListTypeBinder
 import cf.wayzer.placehold.types.StdVariable
-import java.util.*
 
 @Suppress("MemberVisibilityCanBePrivate", "unused")
 object PlaceHoldApi {
@@ -11,10 +9,10 @@ object PlaceHoldApi {
      * use to resolve global vars
      */
     val GlobalContext = VarString.globalContext
-    fun getContext(text: String, vars: Map<String, Any?>) = VarString(text, vars)
-    fun replaceAll(text: String, vars: Map<String, Any?>) = getContext(text, vars).toString()
-    fun String.with(vars: Map<String, Any?>) = getContext(this, vars)
-    fun String.with(vararg vars: Pair<String, Any?>) = getContext(this, vars.toMap())
+    fun getVarString(text: String, vars: Map<String, Any?>) = VarString(text, vars)
+    fun replaceAll(text: String, vars: Map<String, Any?>) = getVarString(text, vars).toString()
+    fun String.with(vars: Map<String, Any?>) = getVarString(this, vars)
+    fun String.with(vararg vars: Pair<String, Any?>) = getVarString(this, vars.toMap())
 
     /**
      * see VarType.kt for all support types
@@ -30,10 +28,7 @@ object PlaceHoldApi {
     /**
      * Helper function for DynamicVar
      */
-    fun <T : Any> registerGlobalDynamicVar(
-        name: String,
-        v: VarString.(name: List<String>, params: VarString.Parameters) -> T?
-    ) = registerGlobalVar(name, DynamicVar(v))
+    fun registerGlobalDynamicVar(name: String, v: DynamicVar) = registerGlobalVar(name, v)
 
     /**
      * get binder for type
@@ -62,7 +57,6 @@ object PlaceHoldApi {
         VarString.globalVars.clear()
         VarString.bindTypes.clear()
 
-        typeBinder<Date>().registerToString(DateResolver())
         @Suppress("UNCHECKED_CAST")
         VarString.bindTypes[List::class.java] = ListTypeBinder() as TypeBinder<Any>
         StdVariable.register()
